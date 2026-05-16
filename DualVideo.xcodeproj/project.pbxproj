@@ -17,7 +17,10 @@
 		1A000008 /* CameraManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000008 /* CameraManager.swift */; };
 		1A000009 /* CameraPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000009 /* CameraPreviewView.swift */; };
 		1A00000A /* CameraContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B00000A /* CameraContentView.swift */; };
+		1A00000B /* PiPOverlayState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B00000B /* PiPOverlayState.swift */; };
 		1A000010 /* CapabilityGateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000010 /* CapabilityGateTests.swift */; };
+		1A000013 /* PiPDragClampTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000013 /* PiPDragClampTests.swift */; };
+		1A000014 /* ZoomClampTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000014 /* ZoomClampTests.swift */; };
 		1A000011 /* PermissionManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000011 /* PermissionManagerTests.swift */; };
 		1A000012 /* CameraManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000012 /* CameraManagerTests.swift */; };
 		1A000020 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1B000020 /* AVFoundation.framework */; };
@@ -33,11 +36,14 @@
 		1B000008 /* CameraManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraManager.swift; sourceTree = "<group>"; };
 		1B000009 /* CameraPreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPreviewView.swift; sourceTree = "<group>"; };
 		1B00000A /* CameraContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraContentView.swift; sourceTree = "<group>"; };
+		1B00000B /* PiPOverlayState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiPOverlayState.swift; sourceTree = "<group>"; };
 		1B000005 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		1B000006 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		1B000010 /* CapabilityGateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CapabilityGateTests.swift; sourceTree = "<group>"; };
 		1B000011 /* PermissionManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionManagerTests.swift; sourceTree = "<group>"; };
 		1B000012 /* CameraManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraManagerTests.swift; sourceTree = "<group>"; };
+		1B000013 /* PiPDragClampTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiPDragClampTests.swift; sourceTree = "<group>"; };
+		1B000014 /* ZoomClampTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZoomClampTests.swift; sourceTree = "<group>"; };
 		1B000020 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
 		1B000021 /* Photos.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Photos.framework; path = System/Library/Frameworks/Photos.framework; sourceTree = SDKROOT; };
 		1C000001 /* DualVideo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DualVideo.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -127,6 +133,7 @@
 				1B000008 /* CameraManager.swift */,
 				1B000009 /* CameraPreviewView.swift */,
 				1B00000A /* CameraContentView.swift */,
+				1B00000B /* PiPOverlayState.swift */,
 			);
 			path = Camera;
 			sourceTree = "<group>";
@@ -153,6 +160,8 @@
 				1B000010 /* CapabilityGateTests.swift */,
 				1B000011 /* PermissionManagerTests.swift */,
 				1B000012 /* CameraManagerTests.swift */,
+				1B000013 /* PiPDragClampTests.swift */,
+				1B000014 /* ZoomClampTests.swift */,
 			);
 			path = UnitTests;
 			sourceTree = "<group>";
@@ -266,6 +275,7 @@
 				1A000008 /* CameraManager.swift in Sources */,
 				1A000009 /* CameraPreviewView.swift in Sources */,
 				1A00000A /* CameraContentView.swift in Sources */,
+				1A00000B /* PiPOverlayState.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -276,6 +286,8 @@
 				1A000010 /* CapabilityGateTests.swift in Sources */,
 				1A000011 /* PermissionManagerTests.swift in Sources */,
 				1A000012 /* CameraManagerTests.swift in Sources */,
+				1A000013 /* PiPDragClampTests.swift in Sources */,
+				1A000014 /* ZoomClampTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
