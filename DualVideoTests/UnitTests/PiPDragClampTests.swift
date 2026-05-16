@@ -34,11 +34,11 @@ final class PiPDragClampTests: XCTestCase {
     }
 
     func testClampLeadingEdge() {
-        // Drag left (positive width offset = moves PiP left)
-        let proposed = CGSize(width: 1000, height: 0)
+        // Drag left (negative width = moves PiP left, matching SwiftUI translation convention)
+        let proposed = CGSize(width: -1000, height: 0)
         let result = state.clampedOffset(proposed: proposed, containerSize: containerSize, pipSize: pipSize, safeAreaInsets: safeAreaInsets)
         let xAnchor = containerSize.width - pipSize.width - PiPOverlayState.edgeMargin
-        // xAbs clamped to xMin = margin = 12; offsetX = xAnchor - 12
-        XCTAssertEqual(result.width, xAnchor - PiPOverlayState.edgeMargin, accuracy: 0.5, "PiP should not go past leading margin")
+        // xAbs = xAnchor - 1000, clamped to xMin = margin; offsetX = margin - xAnchor (negative)
+        XCTAssertEqual(result.width, PiPOverlayState.edgeMargin - xAnchor, accuracy: 0.5, "PiP should not go past leading margin")
     }
 }

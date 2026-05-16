@@ -18,6 +18,13 @@ struct CameraContentView: View {
                 // Back camera: full-bleed primary layer (D-06)
                 CameraPreviewView(previewLayer: cameraManager.backPreviewLayer)
                     .ignoresSafeArea()
+
+                // Transparent gesture capture layer above UIViewRepresentable.
+                // MagnificationGesture must be on a pure-SwiftUI view — UIViewRepresentable
+                // intercepts UIKit touch events before SwiftUI's gesture recognizer fires.
+                Color.clear
+                    .contentShape(Rectangle())
+                    .ignoresSafeArea()
                     .gesture(
                         MagnificationGesture()
                             .onChanged { scale in
@@ -50,7 +57,7 @@ struct CameraContentView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                     .padding(.top, geo.safeAreaInsets.top + PiPOverlayState.edgeMargin)
                     .padding(.trailing, PiPOverlayState.edgeMargin)
-                    .offset(x: -pipState.offset.width, y: pipState.offset.height)
+                    .offset(x: pipState.offset.width, y: pipState.offset.height)
                     .gesture(
                         DragGesture(minimumDistance: 4)
                             .onChanged { value in

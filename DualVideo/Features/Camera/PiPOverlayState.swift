@@ -62,7 +62,7 @@ final class PiPOverlayState {
         let xAnchor = containerSize.width - pipSize.width - margin
         let yAnchor = safeAreaInsets.top + margin
 
-        var xAbs = xAnchor - proposed.width
+        var xAbs = xAnchor + proposed.width
         var yAbs = yAnchor + proposed.height
 
         // Horizontal clamp
@@ -76,7 +76,7 @@ final class PiPOverlayState {
         yAbs = min(max(yAbs, yMin), yMax)
 
         // Convert back to offset from anchor
-        let clampedOffsetX = xAnchor - xAbs
+        let clampedOffsetX = xAbs - xAnchor
         let clampedOffsetY = yAbs - yAnchor
 
         return CGSize(width: clampedOffsetX, height: clampedOffsetY)
