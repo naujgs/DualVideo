@@ -204,7 +204,7 @@ final class PreviewView: UIView {
 | A3 | Safe-area clamping pitfalls are common in PiP UX | Common Pitfalls | Low |
 | A4 | iOS 13 is the specific MultiCam introduction point | State of the Art | Low |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Should Photo Library permission be requested in Phase 1 or deferred to save-time?**
 - What we know: D-01 locks it to up-front request. [VERIFIED: `.planning/phases/.../01-CONTEXT.md`]
