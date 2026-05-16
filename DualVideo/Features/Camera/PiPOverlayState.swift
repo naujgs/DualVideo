@@ -53,8 +53,8 @@ final class PiPOverlayState {
         //   y_anchor = safeAreaInsets.top + margin
         //
         // With offset applied:
-        //   x_abs = x_anchor - proposed.width  (negative offset moves right-to-left, positive moves left)
-        //   y_abs = y_anchor + proposed.height
+        //   x_abs = x_anchor + proposed.width  (positive offset moves right, negative moves left)
+        //   y_abs = y_anchor + proposed.height  (positive offset moves down, negative moves up)
         //
         // Clamp x_abs to [margin, containerSize.width - pipSize.width - margin]
         // Clamp y_abs to [safeAreaInsets.top + margin, containerSize.height - safeAreaInsets.bottom - pipSize.height - margin]
