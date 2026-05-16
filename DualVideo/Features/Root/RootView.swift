@@ -21,9 +21,9 @@ struct RootView: View {
                 PermissionsBlockedView(deniedPermission: which)
 
             case .camera:
-                // Placeholder — replaced by Plan 02 CameraContentView
-                Text("Camera ready")
-                    .font(.largeTitle)
+                CameraContentView(cameraManager: appState.cameraManager)
+                    .onAppear { appState.cameraManager.startSession() }
+                    .onDisappear { appState.cameraManager.stopSession() }
             }
         }
         .animation(.easeInOut(duration: 0.25), value: appState.route.id)
