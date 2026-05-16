@@ -13,4 +13,5 @@ enum AppRoute {
 final class AppState {
     var route: AppRoute = .checkingCapability
     var deviceSupported: Bool = false
+    var cameraManager: CameraManager = CameraManager()
 }

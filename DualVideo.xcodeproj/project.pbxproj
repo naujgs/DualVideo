@@ -13,8 +13,13 @@
 		1A000004 /* UnsupportedDeviceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000004 /* UnsupportedDeviceView.swift */; };
 		1A000005 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000005 /* RootView.swift */; };
 		1A000006 /* Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 1B000006 /* Info.plist */; };
+		1A000007 /* CameraActor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000007 /* CameraActor.swift */; };
+		1A000008 /* CameraManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000008 /* CameraManager.swift */; };
+		1A000009 /* CameraPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000009 /* CameraPreviewView.swift */; };
+		1A00000A /* CameraContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B00000A /* CameraContentView.swift */; };
 		1A000010 /* CapabilityGateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000010 /* CapabilityGateTests.swift */; };
 		1A000011 /* PermissionManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000011 /* PermissionManagerTests.swift */; };
+		1A000012 /* CameraManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000012 /* CameraManagerTests.swift */; };
 		1A000020 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1B000020 /* AVFoundation.framework */; };
 		1A000021 /* Photos.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1B000021 /* Photos.framework */; };
 /* End PBXBuildFile section */
@@ -24,10 +29,15 @@
 		1B000002 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		1B000003 /* PermissionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionManager.swift; sourceTree = "<group>"; };
 		1B000004 /* UnsupportedDeviceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnsupportedDeviceView.swift; sourceTree = "<group>"; };
+		1B000007 /* CameraActor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraActor.swift; sourceTree = "<group>"; };
+		1B000008 /* CameraManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraManager.swift; sourceTree = "<group>"; };
+		1B000009 /* CameraPreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPreviewView.swift; sourceTree = "<group>"; };
+		1B00000A /* CameraContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraContentView.swift; sourceTree = "<group>"; };
 		1B000005 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		1B000006 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		1B000010 /* CapabilityGateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CapabilityGateTests.swift; sourceTree = "<group>"; };
 		1B000011 /* PermissionManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionManagerTests.swift; sourceTree = "<group>"; };
+		1B000012 /* CameraManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraManagerTests.swift; sourceTree = "<group>"; };
 		1B000020 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
 		1B000021 /* Photos.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Photos.framework; path = System/Library/Frameworks/Photos.framework; sourceTree = SDKROOT; };
 		1C000001 /* DualVideo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DualVideo.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -113,6 +123,10 @@
 			children = (
 				1B000003 /* PermissionManager.swift */,
 				1B000004 /* UnsupportedDeviceView.swift */,
+				1B000007 /* CameraActor.swift */,
+				1B000008 /* CameraManager.swift */,
+				1B000009 /* CameraPreviewView.swift */,
+				1B00000A /* CameraContentView.swift */,
 			);
 			path = Camera;
 			sourceTree = "<group>";
@@ -138,6 +152,7 @@
 			children = (
 				1B000010 /* CapabilityGateTests.swift */,
 				1B000011 /* PermissionManagerTests.swift */,
+				1B000012 /* CameraManagerTests.swift */,
 			);
 			path = UnitTests;
 			sourceTree = "<group>";
@@ -247,6 +262,10 @@
 				1A000003 /* PermissionManager.swift in Sources */,
 				1A000004 /* UnsupportedDeviceView.swift in Sources */,
 				1A000005 /* RootView.swift in Sources */,
+				1A000007 /* CameraActor.swift in Sources */,
+				1A000008 /* CameraManager.swift in Sources */,
+				1A000009 /* CameraPreviewView.swift in Sources */,
+				1A00000A /* CameraContentView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -256,6 +275,7 @@
 			files = (
 				1A000010 /* CapabilityGateTests.swift in Sources */,
 				1A000011 /* PermissionManagerTests.swift in Sources */,
+				1A000012 /* CameraManagerTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
