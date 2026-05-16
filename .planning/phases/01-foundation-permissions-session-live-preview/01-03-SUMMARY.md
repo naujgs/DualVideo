@@ -1,9 +1,9 @@
 ---
 plan: 01-03
 phase: 01-foundation-permissions-session-live-preview
-status: awaiting-checkpoint
+status: complete
 started: 2026-05-16
-completed: ~
+completed: 2026-05-16
 requirements:
   - CAP-02
   - CAP-03
@@ -23,7 +23,7 @@ requirements:
 |---|------|--------|--------|
 | 1 | PiPOverlayState + safe-area clamp + unit tests | ✓ Complete | f00ee92 |
 | 2 | DragGesture + MagnificationGesture wired into CameraContentView | ✓ Complete | 87dbd24 |
-| 3 | Human-verify checkpoint: device test of both gestures | ⏳ Awaiting | — |
+| 3 | Human-verify checkpoint: device test of both gestures | ✓ Approved | — |
 
 ## Key Files
 
@@ -43,7 +43,7 @@ requirements:
 - [x] `CameraContentView` has `cameraManager.setZoom(factor)` call
 - [x] `CameraContentView` has `.animation(.interactiveSpring`
 - [x] All 9 unit tests (4 PiP + 5 zoom) pass in simulator
-- [ ] Human-verify checkpoint: both gestures confirmed on physical device
+- [x] Human-verify checkpoint: both gestures confirmed on physical device
 
 ## Deviations
 
