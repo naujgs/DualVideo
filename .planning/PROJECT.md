@@ -12,19 +12,18 @@ Both cameras record together and the result lands in Photos as a single watchabl
 
 ### Validated
 
-(None yet — ship to validate)
+- [x] Show live preview of back camera full-screen and front camera as a draggable PiP overlay simultaneously — Validated in Phase 01: foundation-permissions-session-live-preview
+- [x] User can drag the front-camera PiP overlay to any position on screen before or during recording — Validated in Phase 01
+- [x] Pinch-to-zoom gesture controls the back camera zoom level during live preview — Validated in Phase 01
+- [x] Camera, microphone, and Photo Library permissions are handled with clear prompts and graceful fallback messaging — Validated in Phase 01
+- [x] Graceful detection and user-facing error when device does not support AVCaptureMultiCamSession (pre-A12 hardware) — Validated in Phase 01
 
 ### Active
 
-- [ ] Show live preview of back camera full-screen and front camera as a draggable PiP overlay simultaneously
-- [ ] User can drag the front-camera PiP overlay to any position on screen before or during recording
 - [ ] Single master Record / Stop button starts and stops both cameras in sync
 - [ ] Combined PiP layout is captured into a single 1080p .mov / .mp4 file saved to Photos
 - [ ] Audio is mixed from both front and back microphones into the recorded file
 - [ ] 3-second countdown timer before recording begins
-- [ ] Pinch-to-zoom gesture controls the back camera zoom level during live preview
-- [ ] Camera, microphone, and Photo Library permissions are handled with clear prompts and graceful fallback messaging
-- [ ] Graceful detection and user-facing error when device does not support AVCaptureMultiCamSession (pre-A12 hardware)
 
 ### Out of Scope
 
@@ -81,4 +80,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-16 after initialization*
+*Last updated: 2026-05-16 after Phase 01 completion — live preview, permissions, PiP drag, and pinch zoom validated on device*
