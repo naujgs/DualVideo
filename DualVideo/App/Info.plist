@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>NSCameraUsageDescription</key>
+	<string>DualVideo uses your back and front cameras simultaneously to record a picture-in-picture video.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>DualVideo records audio alongside your dual-camera video.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>DualVideo saves your recordings directly to your Photo Library.</string>
+	<key>UILaunchScreen</key>
+	<dict/>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+	</array>
+</dict>
+</plist>
