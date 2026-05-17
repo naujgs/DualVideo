@@ -52,14 +52,15 @@ final class PiPCompositorTests: XCTestCase {
 
     func testCompositeOutputDimensions() {
         let compositor = PiPCompositor()
-        let back = makeSyntheticBuffer(width: 1920, height: 1080)
-        let front = makeSyntheticBuffer(width: 1440, height: 1080)
-        let pipRect = CGRect(x: 0, y: 0, width: 480, height: 360)
+        // Input buffers use portrait dimensions (videoRotationAngle=90 pre-rotates frames on device)
+        let back = makeSyntheticBuffer(width: 1080, height: 1920)
+        let front = makeSyntheticBuffer(width: 1080, height: 1440)
+        let pipRect = CGRect(x: 0, y: 0, width: 300, height: 400)
         guard let result = compositor.composite(back: back, front: front, pipRect: pipRect) else {
             XCTFail("composite() returned nil"); return
         }
-        XCTAssertEqual(CVPixelBufferGetWidth(result), 1920)
-        XCTAssertEqual(CVPixelBufferGetHeight(result), 1080)
+        XCTAssertEqual(CVPixelBufferGetWidth(result), PiPCompositor.outputWidth)
+        XCTAssertEqual(CVPixelBufferGetHeight(result), PiPCompositor.outputHeight)
     }
 
     func testPiPOffsetSnapshot() {
