@@ -53,9 +53,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 03-01: Implement photo-library save flow with robust permission and temp-file lifecycle handling
-- [ ] 03-02: Add PiP snapping/persistence and recording UX feedback polish
-- [ ] 03-03: Add torch/orientation controls and complete interruption/recovery edge-case handling
+- [ ] 03-01-PLAN.md — PhotoSaveManager, auto-save to Photos, permission re-check, save-result alert, share sheet removal (DEV-03, OUT-01, OUT-02)
+- [ ] 03-02-PLAN.md — PiP corner snapping with spring animation, UserDefaults corner persistence, onAppear restore (OUT-03)
+- [ ] 03-03-PLAN.md — Torch toggle + auto-off on interrupt, zoom label HUD, interruptionEnded recovery, orientation lock device verification (OUT-04)
 
 ## Progress
 
@@ -63,4 +63,4 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. Foundation - Permissions, Session, Live Preview | 3/3 | Complete | 2026-05-17 |
 | 2. Recording Pipeline - Compositor, Writer, Audio | 3/3 | Complete | 2026-05-17 |
-| 3. Save, Polish, and Edge Cases | 0/3 | Not started | - |
+| 3. Save, Polish, and Edge Cases | 0/3 | In progress | - |
