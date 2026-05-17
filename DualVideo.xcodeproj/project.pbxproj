@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 77;
+	objectVersion = 56;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -12,35 +12,50 @@
 		1A000003 /* PermissionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000003 /* PermissionManager.swift */; };
 		1A000004 /* UnsupportedDeviceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000004 /* UnsupportedDeviceView.swift */; };
 		1A000005 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000005 /* RootView.swift */; };
-		1A000006 /* Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 1B000006 /* Info.plist */; };
 		1A000007 /* CameraActor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000007 /* CameraActor.swift */; };
 		1A000008 /* CameraManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000008 /* CameraManager.swift */; };
 		1A000009 /* CameraPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000009 /* CameraPreviewView.swift */; };
 		1A00000A /* CameraContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B00000A /* CameraContentView.swift */; };
 		1A00000B /* PiPOverlayState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B00000B /* PiPOverlayState.swift */; };
 		1A000010 /* CapabilityGateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000010 /* CapabilityGateTests.swift */; };
-		1A000013 /* PiPDragClampTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000013 /* PiPDragClampTests.swift */; };
-		1A000014 /* ZoomClampTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000014 /* ZoomClampTests.swift */; };
 		1A000011 /* PermissionManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000011 /* PermissionManagerTests.swift */; };
 		1A000012 /* CameraManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000012 /* CameraManagerTests.swift */; };
+		1A000013 /* PiPDragClampTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000013 /* PiPDragClampTests.swift */; };
+		1A000014 /* ZoomClampTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000014 /* ZoomClampTests.swift */; };
 		1A000020 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1B000020 /* AVFoundation.framework */; };
 		1A000021 /* Photos.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1B000021 /* Photos.framework */; };
 		1A000030 /* PiPCompositor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000030 /* PiPCompositor.swift */; };
 		1A000031 /* PiPCompositorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000031 /* PiPCompositorTests.swift */; };
+		1A000040 /* MovieRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000040 /* MovieRecorder.swift */; };
+		1A000041 /* RecordingManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000041 /* RecordingManager.swift */; };
+		1A000042 /* RecordButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000042 /* RecordButton.swift */; };
+		1A000043 /* RecordingStatusOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000043 /* RecordingStatusOverlay.swift */; };
+		1A000044 /* MovieRecorderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000044 /* MovieRecorderTests.swift */; };
+		1A000045 /* RecordingManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000045 /* RecordingManagerTests.swift */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		2C000002 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2D000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2A000001;
+			remoteInfo = DualVideo;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		1B000001 /* DualVideoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DualVideoApp.swift; sourceTree = "<group>"; };
 		1B000002 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		1B000003 /* PermissionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionManager.swift; sourceTree = "<group>"; };
 		1B000004 /* UnsupportedDeviceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnsupportedDeviceView.swift; sourceTree = "<group>"; };
+		1B000005 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		1B000006 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		1B000007 /* CameraActor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraActor.swift; sourceTree = "<group>"; };
 		1B000008 /* CameraManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraManager.swift; sourceTree = "<group>"; };
 		1B000009 /* CameraPreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPreviewView.swift; sourceTree = "<group>"; };
 		1B00000A /* CameraContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraContentView.swift; sourceTree = "<group>"; };
 		1B00000B /* PiPOverlayState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiPOverlayState.swift; sourceTree = "<group>"; };
-		1B000005 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
-		1B000006 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		1B000010 /* CapabilityGateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CapabilityGateTests.swift; sourceTree = "<group>"; };
 		1B000011 /* PermissionManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionManagerTests.swift; sourceTree = "<group>"; };
 		1B000012 /* CameraManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraManagerTests.swift; sourceTree = "<group>"; };
@@ -50,6 +65,12 @@
 		1B000021 /* Photos.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Photos.framework; path = System/Library/Frameworks/Photos.framework; sourceTree = SDKROOT; };
 		1B000030 /* PiPCompositor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiPCompositor.swift; sourceTree = "<group>"; };
 		1B000031 /* PiPCompositorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiPCompositorTests.swift; sourceTree = "<group>"; };
+		1B000040 /* MovieRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MovieRecorder.swift; sourceTree = "<group>"; };
+		1B000041 /* RecordingManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingManager.swift; sourceTree = "<group>"; };
+		1B000042 /* RecordButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordButton.swift; sourceTree = "<group>"; };
+		1B000043 /* RecordingStatusOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingStatusOverlay.swift; sourceTree = "<group>"; };
+		1B000044 /* MovieRecorderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MovieRecorderTests.swift; sourceTree = "<group>"; };
+		1B000045 /* RecordingManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingManagerTests.swift; sourceTree = "<group>"; };
 		1C000001 /* DualVideo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DualVideo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1C000002 /* DualVideoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DualVideoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -125,8 +146,20 @@
 			isa = PBXGroup;
 			children = (
 				1B000030 /* PiPCompositor.swift */,
+				1B000040 /* MovieRecorder.swift */,
+				1B000041 /* RecordingManager.swift */,
+				1E000016 /* UI */,
 			);
 			path = Recording;
+			sourceTree = "<group>";
+		};
+		1E000016 /* UI */ = {
+			isa = PBXGroup;
+			children = (
+				1B000042 /* RecordButton.swift */,
+				1B000043 /* RecordingStatusOverlay.swift */,
+			);
+			path = UI;
 			sourceTree = "<group>";
 		};
 		1E000012 /* Shared */ = {
@@ -176,11 +209,13 @@
 				1B000013 /* PiPDragClampTests.swift */,
 				1B000014 /* ZoomClampTests.swift */,
 				1B000031 /* PiPCompositorTests.swift */,
+				1B000044 /* MovieRecorderTests.swift */,
+				1B000045 /* RecordingManagerTests.swift */,
 			);
 			path = UnitTests;
 			sourceTree = "<group>";
 		};
-		1F000000 /* / */ = {
+		1F000000 = {
 			isa = PBXGroup;
 			children = (
 				1E000002 /* DualVideo */,
@@ -254,7 +289,7 @@
 				en,
 				Base,
 			);
-			mainGroup = 1F000000 /* / */;
+			mainGroup = 1F000000;
 			productRefGroup = 1E000000 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -291,6 +326,10 @@
 				1A00000A /* CameraContentView.swift in Sources */,
 				1A00000B /* PiPOverlayState.swift in Sources */,
 				1A000030 /* PiPCompositor.swift in Sources */,
+				1A000040 /* MovieRecorder.swift in Sources */,
+				1A000041 /* RecordingManager.swift in Sources */,
+				1A000042 /* RecordButton.swift in Sources */,
+				1A000043 /* RecordingStatusOverlay.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -304,6 +343,8 @@
 				1A000013 /* PiPDragClampTests.swift in Sources */,
 				1A000014 /* ZoomClampTests.swift in Sources */,
 				1A000031 /* PiPCompositorTests.swift in Sources */,
+				1A000044 /* MovieRecorderTests.swift in Sources */,
+				1A000045 /* RecordingManagerTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -316,16 +357,6 @@
 			targetProxy = 2C000002 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
-
-/* Begin PBXContainerItemProxy section */
-		2C000002 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 2D000001 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 2A000001;
-			remoteInfo = DualVideo;
-		};
-/* End PBXContainerItemProxy section */
 
 /* Begin XCBuildConfiguration section */
 		3B000001 /* Debug */ = {
@@ -488,7 +519,7 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = 7ZV82QKPX6;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = DualVideo/App/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = DualVideo;
@@ -515,7 +546,7 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = 7ZV82QKPX6;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = DualVideo/App/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = DualVideo;
@@ -568,7 +599,6 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
-
 	};
 	rootObject = 2D000001 /* Project object */;
 }
