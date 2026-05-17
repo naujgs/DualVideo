@@ -218,18 +218,19 @@ extension PiPCompositor: AVCaptureVideoDataOutputSampleBufferDelegate {
         let margin: CGFloat = PiPOverlayState.edgeMargin * scaleX
 
         // Coordinate system correction: CVPixelBuffers delivered by AVCaptureVideoDataOutput with
-        // videoRotationAngle=90 have both X and Y axes inverted relative to SwiftUI coordinates.
-        // Without correction, top-right in the UI appears at bottom-left in the recorded video.
+        // videoRotationAngle=90 have the Y axis inverted relative to SwiftUI coordinates — CI Y=0
+        // is at the BOTTOM of the video frame, while SwiftUI Y=0 is at the TOP.
+        // X is NOT inverted; the standard left-to-right mapping is correct.
         //
-        // Derivation (CI origin at bottom-right of the pixel buffer):
-        //   SwiftUI default anchor = top-right: rawX = outputWidth - pipWidth - margin, rawY = margin
-        //   CI X-flip: ciX = outputWidth - rawX - pipWidth = margin - offset.width * scaleX
-        //   CI Y-flip: ciY = outputHeight - rawY - pipHeight
-        //            = outputHeight - margin - pipHeight - offset.height * scaleY
+        // Without Y correction, a PiP at the top of the UI appears at the bottom of the video.
+        // The Y scale must also use outputHeight/screenHeight (not outputWidth/screenWidth) because
+        // the output and screen have different aspect ratios — using the width ratio for Y offsets
+        // over-scales them, pushing bottom-corner PiP positions out of the frame (clip on top).
         //
-        // Result: corner 0 (UI top-right)  → ciX≈margin (CI right),  ciY≈outputHeight-margin-pipH (CI top)  ✓
-        //         corner 3 (UI bottom-left) → ciX≈outputWidth-margin-pipW (CI left), ciY≈margin (CI bottom) ✓
-        let ciX = margin - offset.width  * scaleX
+        // X anchor: right side of output = outputWidth - pipWidth - margin (standard, no flip)
+        // Y anchor: CI bottom = outputHeight - margin - pipHeight (flipped from SwiftUI top)
+        // Moving down in SwiftUI (positive offset.height) → decreasing CI Y → ciY -= offset.height*scaleY
+        let ciX = CGFloat(Self.outputWidth) - pipWidth - margin + offset.width  * scaleX
         let ciY = CGFloat(Self.outputHeight) - margin - pipHeight - offset.height * scaleY
         let pipRect = CGRect(x: ciX, y: ciY, width: pipWidth, height: pipHeight)
 
