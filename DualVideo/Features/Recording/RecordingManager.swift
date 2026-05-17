@@ -64,10 +64,11 @@ final class RecordingManager: NSObject, @unchecked Sendable {
             wireCompositor(compositor)
         }
 
-        // Set RecordingManager as audio delegate for both beam outputs (D-05)
+        // Use back-beam only for the audio recording track.
+        // Wiring both outputs to the same AVAssetWriterInput doubles the sample count,
+        // producing 2× audio duration and causing slow playback + noise.
         let audioQueue = DispatchQueue(label: "com.naujgs.DualVideo.audioDelegate", qos: .userInitiated)
         cameraManager.backAudioOutput?.setSampleBufferDelegate(self, queue: audioQueue)
-        cameraManager.frontAudioOutput?.setSampleBufferDelegate(self, queue: audioQueue)
 
         // Interruption observers (D-06)
         NotificationCenter.default.addObserver(
