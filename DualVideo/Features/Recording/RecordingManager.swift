@@ -31,6 +31,8 @@ final class RecordingManager: NSObject, @unchecked Sendable {
 
     nonisolated(unsafe) private let recorder = MovieRecorder()
     nonisolated(unsafe) private var timerTask: Task<Void, Never>?
+    /// Retained so startRecording() can bridge the pixel buffer pool to the compositor (WR-02).
+    nonisolated(unsafe) private weak var compositor: PiPCompositor?
 
     // MARK: - Init
 
@@ -59,9 +61,10 @@ final class RecordingManager: NSObject, @unchecked Sendable {
     /// Call from the main thread after session is running.
     @MainActor
     func setup(cameraManager: CameraManager) {
-        // Wire compositor
-        if let compositor = cameraManager.compositor {
-            wireCompositor(compositor)
+        // Wire compositor and cache screen metrics for dataOutputQueue use (CR-01)
+        if let comp = cameraManager.compositor {
+            wireCompositor(comp)
+            comp.updateScreenMetrics()
         }
 
         // Use back-beam only for the audio recording track.
@@ -103,6 +106,9 @@ final class RecordingManager: NSObject, @unchecked Sendable {
         elapsedSeconds = 0
 
         recorder.startRecording()
+        // Bridge the pixel buffer pool from the adaptor to the compositor (WR-02).
+        // recorder.startRecording() creates the adaptor synchronously, so the pool is available here.
+        compositor?.pixelBufferPool = recorder.adaptor?.pixelBufferPool
 
         // Start elapsed timer — updates elapsedSeconds on main every second
         timerTask = Task { @MainActor [weak self] in
@@ -131,12 +137,14 @@ final class RecordingManager: NSObject, @unchecked Sendable {
         timerTask = nil
         phase = .finalizing
 
-        // Acquire background task to ensure finalization completes even if app backgrounds (T-02-03-02)
-        let bgTask = UIApplication.shared.beginBackgroundTask(withName: "finalize-recording") {
+        // Acquire background task to ensure finalization completes even if app backgrounds (T-02-03-02).
+        // bgTask is declared as var so the expiry closure captures the correct identifier (WR-01).
+        var bgTask: UIBackgroundTaskIdentifier = .invalid
+        bgTask = UIApplication.shared.beginBackgroundTask(withName: "finalize-recording") {
             // OS-triggered expiration: cancel to avoid corruption
             logger.error("RecordingManager: background task expired — cancelling recorder")
             self.recorder.cancelAndDiscard()
-            UIApplication.shared.endBackgroundTask(.invalid)
+            UIApplication.shared.endBackgroundTask(bgTask)
         }
 
         recorder.stopAndFinalize { [weak self] url in
@@ -163,7 +171,9 @@ final class RecordingManager: NSObject, @unchecked Sendable {
 
     /// Wire compositor output to recorder. Called by setup(cameraManager:) after compositor is set up.
     /// compositor.onComposited is called on dataOutputQueue — recorder appends there.
+    /// Stores a weak reference so startRecording() can bridge the pixel buffer pool (WR-02).
     func wireCompositor(_ compositor: PiPCompositor) {
+        self.compositor = compositor
         compositor.onComposited = { [weak self] pixelBuffer, pts in
             // Already on dataOutputQueue — pass directly to recorder
             self?.recorder.appendVideoBuffer(pixelBuffer, pts: pts)
@@ -193,8 +203,8 @@ final class RecordingManager: NSObject, @unchecked Sendable {
 // MARK: - AVCaptureAudioDataOutputSampleBufferDelegate
 
 extension RecordingManager: AVCaptureAudioDataOutputSampleBufferDelegate {
-    /// Called on audioDelegate queue by both back and front audio outputs (D-05).
-    /// Both beams go to the same recorder audio track (blended approach per D-05).
+    /// Called on audioDelegate queue by the back-beam audio output (D-05).
+    /// Only the back beam is registered as delegate; wiring both caused 2× audio duration.
     nonisolated func captureOutput(
         _ output: AVCaptureOutput,
         didOutput sampleBuffer: CMSampleBuffer,

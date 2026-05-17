@@ -173,18 +173,21 @@ final class MovieRecorder {
         videoInput?.markAsFinished()
         audioInput?.markAsFinished()
 
+        // Capture writer and url locally before the async boundary (WR-04).
+        // A concurrent cancelAndDiscard() can nil self.writer between the closure entry and the
+        // status read, so capture the local reference now while still on the calling thread.
         let url = outputURL
-        writer?.finishWriting { [weak self] in
-            guard let self else { return }
+        guard let w = writer else { cleanup(); completion(nil); return }
+        w.finishWriting { [weak self] in
             let finalURL: URL?
-            if self.writer?.status == .completed {
+            if w.status == .completed {
                 finalURL = url
                 logger.info("MovieRecorder: finalization complete, url=\(url?.lastPathComponent ?? "nil")")
             } else {
-                logger.error("MovieRecorder: finalization failed, status=\(self.writer?.status.rawValue ?? -1)")
+                logger.error("MovieRecorder: finalization failed, status=\(w.status.rawValue)")
                 finalURL = nil
             }
-            self.cleanup()
+            self?.cleanup()
             completion(finalURL)
         }
     }

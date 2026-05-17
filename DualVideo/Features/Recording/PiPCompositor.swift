@@ -37,6 +37,12 @@ final class PiPCompositor: NSObject {
     /// from main and a one-frame staleness is visually imperceptible.
     nonisolated(unsafe) private(set) var pipOffsetSnapshot: CGSize = .zero
 
+    // MARK: - Screen metric snapshots (CR-01: UIScreen.main is @MainActor — must not be read on dataOutputQueue)
+    /// Snapshot of UIScreen.main.bounds.width. Updated from the main thread via updateScreenMetrics().
+    nonisolated(unsafe) private(set) var screenWidthSnapshot: CGFloat = 393  // safe default for portrait iPhone
+    /// Snapshot of UIScreen.main.scale. Updated from the main thread via updateScreenMetrics().
+    nonisolated(unsafe) private(set) var screenScaleSnapshot: CGFloat = 2.0
+
     // MARK: - Frame buffers (dataOutputQueue-serialized)
     /// Latest back-camera pixel buffer from AVCaptureVideoDataOutputSampleBufferDelegate.
     nonisolated(unsafe) private var latestBackBuffer: CVPixelBuffer?
@@ -79,6 +85,14 @@ final class PiPCompositor: NSObject {
     @MainActor
     func updatePiPOffset(_ offset: CGSize) {
         pipOffsetSnapshot = offset
+    }
+
+    /// Cache UIScreen metrics for use on dataOutputQueue. MUST be called from the main thread.
+    /// Call once after session starts (e.g. from RecordingManager.setup) and on orientation change.
+    @MainActor
+    func updateScreenMetrics() {
+        screenWidthSnapshot = UIScreen.main.bounds.width
+        screenScaleSnapshot = UIScreen.main.scale
     }
 
     /// Composites back and front pixel buffers into a 1920×1080 PiP output buffer.
@@ -192,8 +206,9 @@ extension PiPCompositor: AVCaptureVideoDataOutputSampleBufferDelegate {
         // Top-right anchor in 1920×1080: x = 1920 - pipWidth - margin, y = margin
         let pipWidth: CGFloat = CGFloat(Self.outputWidth) * 0.28
         let pipHeight: CGFloat = pipWidth * (4.0 / 3.0)
-        let screenWidth = UIScreen.main.bounds.width
-        let screenScale = UIScreen.main.scale
+        // Use cached screen metrics — UIScreen.main is @MainActor and must not be read here (CR-01)
+        let screenWidth = screenWidthSnapshot
+        let screenScale = screenScaleSnapshot
         let margin: CGFloat = PiPOverlayState.edgeMargin / screenScale * (CGFloat(Self.outputWidth) / screenWidth)
         // Scale UI-space offset to output space (portrait: 1080 wide)
         let scaleToOutput = CGFloat(Self.outputWidth) / screenWidth

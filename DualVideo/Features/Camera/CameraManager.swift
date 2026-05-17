@@ -176,7 +176,9 @@ final class CameraManager: @unchecked Sendable {
             let backAudioOut = AVCaptureAudioDataOutput()
             let frontAudioOut = AVCaptureAudioDataOutput()
 
-            var audioAdded = false
+            // Track each beam independently so partial failures are logged separately (WR-03)
+            var backAudioWired = false
+            var frontAudioWired = false
             if session.canAddOutput(backAudioOut) {
                 session.addOutputWithNoConnections(backAudioOut)
                 if let backAudioPort = micInput.ports(
@@ -187,7 +189,7 @@ final class CameraManager: @unchecked Sendable {
                     let backAudioConn = AVCaptureConnection(inputPorts: [backAudioPort], output: backAudioOut)
                     if session.canAddConnection(backAudioConn) {
                         session.addConnection(backAudioConn)
-                        audioAdded = true
+                        backAudioWired = true
                         logger.info("CameraManager: back-beam audio output wired")
                     }
                 }
@@ -202,14 +204,18 @@ final class CameraManager: @unchecked Sendable {
                     let frontAudioConn = AVCaptureConnection(inputPorts: [frontAudioPort], output: frontAudioOut)
                     if session.canAddConnection(frontAudioConn) {
                         session.addConnection(frontAudioConn)
+                        frontAudioWired = true
                         logger.info("CameraManager: front-beam audio output wired")
                     }
                 }
             }
             self.backAudioOutput = backAudioOut
             self.frontAudioOutput = frontAudioOut
-            if !audioAdded {
-                logger.warning("CameraManager: dual-mic audio wiring failed — check iOS 16.1+ regression; no audio track will be recorded")
+            if !backAudioWired {
+                logger.warning("CameraManager: back-beam audio wiring failed — no audio will be recorded; check iOS 16.1+ regression")
+            }
+            if !frontAudioWired {
+                logger.warning("CameraManager: front-beam audio wiring failed — front mic unavailable")
             }
         } else {
             logger.warning("CameraManager: microphone input unavailable — no audio will be recorded")
