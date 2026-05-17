@@ -35,6 +35,9 @@
 		1A000050 /* PhotoSaveManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000050 /* PhotoSaveManager.swift */; };
 		1A000051 /* PhotoSaveManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000051 /* PhotoSaveManagerTests.swift */; };
 		1A000052 /* PiPSnapTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000052 /* PiPSnapTests.swift */; };
+		1A000060 /* TorchToggleButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000060 /* TorchToggleButton.swift */; };
+		1A000061 /* ZoomLabelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000061 /* ZoomLabelView.swift */; };
+		1A000062 /* ZoomLabelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000062 /* ZoomLabelTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -77,6 +80,9 @@
 		1B000050 /* PhotoSaveManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoSaveManager.swift; sourceTree = "<group>"; };
 		1B000051 /* PhotoSaveManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoSaveManagerTests.swift; sourceTree = "<group>"; };
 		1B000052 /* PiPSnapTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiPSnapTests.swift; sourceTree = "<group>"; };
+		1B000060 /* TorchToggleButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TorchToggleButton.swift; sourceTree = "<group>"; };
+		1B000061 /* ZoomLabelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZoomLabelView.swift; sourceTree = "<group>"; };
+		1B000062 /* ZoomLabelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZoomLabelTests.swift; sourceTree = "<group>"; };
 		1C000001 /* DualVideo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DualVideo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1C000002 /* DualVideoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DualVideoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -165,6 +171,8 @@
 			children = (
 				1B000042 /* RecordButton.swift */,
 				1B000043 /* RecordingStatusOverlay.swift */,
+				1B000060 /* TorchToggleButton.swift */,
+				1B000061 /* ZoomLabelView.swift */,
 			);
 			path = UI;
 			sourceTree = "<group>";
@@ -220,6 +228,7 @@
 				1B000045 /* RecordingManagerTests.swift */,
 				1B000051 /* PhotoSaveManagerTests.swift */,
 				1B000052 /* PiPSnapTests.swift */,
+				1B000062 /* ZoomLabelTests.swift */,
 			);
 			path = UnitTests;
 			sourceTree = "<group>";
@@ -340,6 +349,8 @@
 				1A000042 /* RecordButton.swift in Sources */,
 				1A000043 /* RecordingStatusOverlay.swift in Sources */,
 				1A000050 /* PhotoSaveManager.swift in Sources */,
+				1A000060 /* TorchToggleButton.swift in Sources */,
+				1A000061 /* ZoomLabelView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -357,6 +368,7 @@
 				1A000045 /* RecordingManagerTests.swift in Sources */,
 				1A000051 /* PhotoSaveManagerTests.swift in Sources */,
 				1A000052 /* PiPSnapTests.swift in Sources */,
+				1A000062 /* ZoomLabelTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
