@@ -26,10 +26,13 @@ final class RecordingManager: NSObject, @unchecked Sendable {
     var phase: RecordingPhase = .idle
     var elapsedSeconds: Int = 0
     var pendingFileURL: URL? = nil
+    /// Result of the most recent auto-save attempt. nil = no save attempted yet.
+    var saveResult: Result<Void, PhotoSaveError>? = nil
 
     // MARK: - Internals
 
     nonisolated(unsafe) private let recorder = MovieRecorder()
+    nonisolated(unsafe) private let photoSaver = PhotoSaveManager()
     nonisolated(unsafe) private var timerTask: Task<Void, Never>?
     /// Retained so startRecording() can bridge the pixel buffer pool to the compositor (WR-02).
     nonisolated(unsafe) private weak var compositor: PiPCompositor?
@@ -78,15 +81,27 @@ final class RecordingManager: NSObject, @unchecked Sendable {
             forName: UIApplication.didEnterBackgroundNotification,
             object: nil,
             queue: .main
-        ) { [weak self] _ in
-            self?.handleInterruption()
+        ) { [weak self, weak cameraManager] _ in
+            self?.handleInterruption(cameraManager: cameraManager)
         }
         NotificationCenter.default.addObserver(
             forName: AVCaptureSession.wasInterruptedNotification,
             object: nil,
             queue: .main
-        ) { [weak self] _ in
-            self?.handleInterruption()
+        ) { [weak self, weak cameraManager] _ in
+            self?.handleInterruption(cameraManager: cameraManager)
+        }
+
+        // Interruption recovery (RESEARCH.md Pattern 5): when OS re-enables camera after phone call,
+        // sync session running state so preview recovers without user action.
+        NotificationCenter.default.addObserver(
+            forName: AVCaptureSession.interruptionEndedNotification,
+            object: nil,
+            queue: .main
+        ) { [weak cameraManager] _ in
+            // If session auto-restarted, reflect that in observable state
+            cameraManager?.syncSessionRunningState()
+            logger.info("RecordingManager: interruptionEnded — synced session running state")
         }
 
         logger.info("RecordingManager: setup complete, interruption observers registered")
@@ -155,17 +170,30 @@ final class RecordingManager: NSObject, @unchecked Sendable {
                 self.elapsedSeconds = 0
                 UIApplication.shared.endBackgroundTask(bgTask)
                 logger.info("RecordingManager: finalized, bgTask ended, url=\(url?.lastPathComponent ?? "nil")")
+                if let url { self.saveRecording(url: url) }
                 completion(url)
             }
         }
     }
 
+    /// Trigger Photos auto-save for the given URL. Called from stopRecording completion.
+    @MainActor
+    private func saveRecording(url: URL) {
+        photoSaver.saveVideoToPhotos(url: url) { [weak self] result in
+            // Already dispatched to main by PhotoSaveManager
+            self?.saveResult = result
+            if case .success = result { self?.pendingFileURL = nil }
+        }
+    }
+
     /// Interrupt handler — auto-stop for phone calls / backgrounding (D-06).
     /// Called from interruption observers registered in setup(cameraManager:).
+    /// Turns torch off before stopping to prevent battery drain (T-03-03-01).
     @MainActor
-    func handleInterruption() {
+    func handleInterruption(cameraManager: CameraManager? = nil) {
         guard case .recording = phase else { return }
         logger.info("RecordingManager: interruption detected — auto-stopping")
+        cameraManager?.turnTorchOff()
         stopRecording()
     }
 

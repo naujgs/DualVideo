@@ -47,6 +47,7 @@ final class CameraManager: @unchecked Sendable {
     var backZoomFactor: CGFloat = 1.0
     var isSessionRunning: Bool = false
     var sessionError: String? = nil
+    var isTorchOn: Bool = false
 
     init() {
         backPreviewLayer = AVCaptureVideoPreviewLayer()
@@ -82,6 +83,52 @@ final class CameraManager: @unchecked Sendable {
             } catch {
                 logger.error("Zoom lock failed: \(error.localizedDescription)")
             }
+        }
+    }
+
+    /// Toggle back-camera torch on/off. Guards hasTorch and isTorchModeSupported (Pitfall 6).
+    /// Uses same lockForConfiguration pattern as setZoom() (RESEARCH.md Pattern 3).
+    func toggleTorch() {
+        sessionQueue.async { [weak self] in
+            guard let device = self?.backDevice,
+                  device.hasTorch,
+                  device.isTorchModeSupported(.on) else { return }
+            do {
+                try device.lockForConfiguration()
+                let newMode: AVCaptureDevice.TorchMode = (device.torchMode == .on) ? .off : .on
+                device.torchMode = newMode
+                device.unlockForConfiguration()
+                DispatchQueue.main.async { self?.isTorchOn = (newMode == .on) }
+            } catch {
+                logger.error("Torch toggle failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    /// Turn torch off if currently on. Called on recording interruption (RESEARCH.md Pitfall 3).
+    func turnTorchOff() {
+        sessionQueue.async { [weak self] in
+            guard let device = self?.backDevice,
+                  device.hasTorch,
+                  device.isTorchModeSupported(.on),
+                  device.torchMode == .on else { return }
+            do {
+                try device.lockForConfiguration()
+                device.torchMode = .off
+                device.unlockForConfiguration()
+                DispatchQueue.main.async { self?.isTorchOn = false }
+            } catch {
+                logger.error("Torch off failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    /// Sync isSessionRunning with the actual session state. Called after interruptionEnded.
+    func syncSessionRunningState() {
+        sessionQueue.async { [weak self] in
+            guard let self else { return }
+            let running = self.session.isRunning
+            DispatchQueue.main.async { self.isSessionRunning = running }
         }
     }
 
@@ -148,6 +195,14 @@ final class CameraManager: @unchecked Sendable {
             if session.canAddConnection(backConn) {
                 session.addConnection(backConn)
                 if backConn.isVideoRotationAngleSupported(90) { backConn.videoRotationAngle = 90 }
+                // Explicitly disable mirroring on back camera data output.
+                // AVCaptureMultiCamSession can default isVideoMirrored=true for back camera
+                // connections when videoRotationAngle is applied, causing the recorded frames
+                // to appear horizontally flipped relative to the live preview.
+                if backConn.isVideoMirroringSupported {
+                    backConn.automaticallyAdjustsVideoMirroring = false
+                    backConn.isVideoMirrored = false
+                }
             }
 
             // Back preview layer connection
@@ -160,6 +215,13 @@ final class CameraManager: @unchecked Sendable {
             if session.canAddConnection(frontConn) {
                 session.addConnection(frontConn)
                 if frontConn.isVideoRotationAngleSupported(90) { frontConn.videoRotationAngle = 90 }
+                // Disable mirroring on front camera data output.
+                // Front camera connections default isVideoMirrored=true (selfie mirror behavior).
+                // For recorded video, un-mirror so content matches physical reality.
+                if frontConn.isVideoMirroringSupported {
+                    frontConn.automaticallyAdjustsVideoMirroring = false
+                    frontConn.isVideoMirrored = false
+                }
             }
 
             // Front preview layer connection

@@ -9,7 +9,6 @@ struct CameraContentView: View {
     @State private var pipState = PiPOverlayState()
     @State private var activeZoomBase: CGFloat = 1.0  // zoom at gesture start
     @State private var safeAreaInsets: EdgeInsets = .init()
-    @State private var shareURL: URL? = nil
 
     var body: some View {
         GeometryReader { geo in
@@ -82,14 +81,53 @@ struct CameraContentView: View {
                     )
                     .animation(.interactiveSpring(response: 0.3, dampingFraction: 0.7), value: pipState.offset)
 
-                // Record/Stop button + recording status: bottom-center stack (D-02, D-03)
+                // Recording counter — top-center, below Dynamic Island / notch
+                if case .recording = recordingManager.phase {
+                    VStack {
+                        RecordingStatusOverlay(elapsedSeconds: recordingManager.elapsedSeconds)
+                            .padding(.top, geo.safeAreaInsets.top + 40)
+                            .transition(.opacity)
+                        Spacer()
+                    }
+                }
+
+                // Torch button — left column, above home indicator
+                VStack {
+                    Spacer()
+                    HStack {
+                        TorchToggleButton(
+                            isTorchOn: cameraManager.isTorchOn,
+                            onTap: { cameraManager.toggleTorch() }
+                        )
+                        .padding(.leading, 20)
+                        .padding(.bottom, geo.safeAreaInsets.bottom + 24)
+                        Spacer()
+                    }
+                }
+
+                // Record/Stop button + zoom label + save banner: bottom-center stack
                 VStack(spacing: 0) {
                     Spacer()
-                    // Recording status indicator: visible just above Record button during active recording (D-03)
-                    if case .recording = recordingManager.phase {
-                        RecordingStatusOverlay(elapsedSeconds: recordingManager.elapsedSeconds)
-                            .padding(.bottom, 10)
+                    // Zoom label: always visible just above the record button
+                    ZoomLabelView(zoomFactor: cameraManager.backZoomFactor)
+                        .padding(.bottom, 10)
+                    // Transient success banner: appears 2.5s after successful save (OUT-02)
+                    if case .success = recordingManager.saveResult {
+                        Text("Saved to Photos")
+                            .font(.caption)
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(.black.opacity(0.6))
+                            .clipShape(Capsule())
+                            .padding(.bottom, 8)
                             .transition(.opacity)
+                            .onAppear {
+                                Task {
+                                    try? await Task.sleep(nanoseconds: 2_500_000_000)
+                                    recordingManager.saveResult = nil
+                                }
+                            }
                     }
                     RecordButton(
                         isRecording: {
@@ -120,6 +158,12 @@ struct CameraContentView: View {
                 safeAreaInsets = geo.safeAreaInsets
                 // Sync zoom baseline to current device zoom (e.g. after app resume)
                 activeZoomBase = cameraManager.backZoomFactor
+                // OUT-03: restore PiP to last-used corner using current screen geometry
+                pipState.restorePersistedCorner(
+                    containerSize: geo.size,
+                    pipSize: pipSize,
+                    safeAreaInsets: geo.safeAreaInsets
+                )
             }
         }
         .ignoresSafeArea()
@@ -135,21 +179,37 @@ struct CameraContentView: View {
                 cameraManager.compositor?.updatePiPOffset(newOffset)
             }
         }
-        .onChange(of: recordingManager.pendingFileURL) { _, url in
-            shareURL = url
-        }
-        .sheet(isPresented: Binding(get: { shareURL != nil }, set: { if !$0 { shareURL = nil } })) {
-            if let url = shareURL {
-                ActivityView(url: url)
+        // Save-failure alert: shown when saveResult is .failure (OUT-02, DEV-03)
+        .alert(
+            "Save Failed",
+            isPresented: Binding(
+                get: {
+                    if case .failure = recordingManager.saveResult { return true }
+                    return false
+                },
+                set: { if !$0 { recordingManager.saveResult = nil } }
+            ),
+            actions: {
+                Button("Open Settings") {
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                        UIApplication.shared.open(url)
+                    }
+                    recordingManager.saveResult = nil
+                }
+                Button("Dismiss", role: .cancel) {
+                    recordingManager.saveResult = nil
+                }
+            },
+            message: {
+                if case .failure(let err) = recordingManager.saveResult {
+                    switch err {
+                    case .permissionDenied:
+                        Text("DualVideo doesn't have permission to save to Photos. Open Settings to allow access.")
+                    case .saveFailed(let msg):
+                        Text("Could not save recording: \(msg)")
+                    }
+                }
             }
-        }
+        )
     }
-}
-
-private struct ActivityView: UIViewControllerRepresentable {
-    let url: URL
-    func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: [url], applicationActivities: nil)
-    }
-    func updateUIViewController(_ uvc: UIActivityViewController, context: Context) {}
 }
