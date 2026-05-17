@@ -21,9 +21,12 @@ struct RootView: View {
                 PermissionsBlockedView(deniedPermission: which)
 
             case .camera:
-                CameraContentView(cameraManager: appState.cameraManager)
-                    .onAppear { appState.cameraManager.startSession() }
-                    .onDisappear { appState.cameraManager.stopSession() }
+                CameraContentView(
+                    cameraManager: appState.cameraManager,
+                    recordingManager: appState.recordingManager
+                )
+                .onAppear { appState.cameraManager.startSession() }
+                .onDisappear { appState.cameraManager.stopSession() }
             }
         }
         .animation(.easeInOut(duration: 0.25), value: appState.route.id)

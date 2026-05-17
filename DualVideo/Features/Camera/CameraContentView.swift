@@ -1,12 +1,15 @@
 import SwiftUI
 import AVFoundation
+import UIKit
 
 struct CameraContentView: View {
     let cameraManager: CameraManager
+    let recordingManager: RecordingManager
 
     @State private var pipState = PiPOverlayState()
     @State private var activeZoomBase: CGFloat = 1.0  // zoom at gesture start
     @State private var safeAreaInsets: EdgeInsets = .init()
+    @State private var shareURL: URL? = nil
 
     var body: some View {
         GeometryReader { geo in
@@ -78,8 +81,41 @@ struct CameraContentView: View {
                             }
                     )
                     .animation(.interactiveSpring(response: 0.3, dampingFraction: 0.7), value: pipState.offset)
+
+                // Record/Stop button + recording status: bottom-center stack (D-02, D-03)
+                VStack(spacing: 0) {
+                    Spacer()
+                    // Recording status indicator: visible just above Record button during active recording (D-03)
+                    if case .recording = recordingManager.phase {
+                        RecordingStatusOverlay(elapsedSeconds: recordingManager.elapsedSeconds)
+                            .padding(.bottom, 10)
+                            .transition(.opacity)
+                    }
+                    RecordButton(
+                        isRecording: {
+                            if case .recording = recordingManager.phase { return true }
+                            return false
+                        }(),
+                        isFinalizing: {
+                            if case .finalizing = recordingManager.phase { return true }
+                            return false
+                        }(),
+                        onTap: {
+                            if case .recording = recordingManager.phase {
+                                recordingManager.stopRecording()
+                            } else if case .idle = recordingManager.phase {
+                                recordingManager.startRecording()
+                            }
+                        }
+                    )
+                    .padding(.bottom, geo.safeAreaInsets.bottom + 24)
+                }
             }
             .background(Color.black)
+            .animation(.easeInOut(duration: 0.3), value: {
+                if case .recording = recordingManager.phase { return 1 }
+                return 0
+            }())
             .onAppear {
                 safeAreaInsets = geo.safeAreaInsets
                 // Sync zoom baseline to current device zoom (e.g. after app resume)
@@ -87,5 +123,33 @@ struct CameraContentView: View {
             }
         }
         .ignoresSafeArea()
+        .onChange(of: cameraManager.isSessionRunning) { _, isRunning in
+            if isRunning {
+                Task { @MainActor in
+                    recordingManager.setup(cameraManager: cameraManager)
+                }
+            }
+        }
+        .onChange(of: pipState.offset) { _, newOffset in
+            Task { @MainActor in
+                cameraManager.compositor?.updatePiPOffset(newOffset)
+            }
+        }
+        .onChange(of: recordingManager.pendingFileURL) { _, url in
+            shareURL = url
+        }
+        .sheet(isPresented: Binding(get: { shareURL != nil }, set: { if !$0 { shareURL = nil } })) {
+            if let url = shareURL {
+                ActivityView(url: url)
+            }
+        }
     }
+}
+
+private struct ActivityView: UIViewControllerRepresentable {
+    let url: URL
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: [url], applicationActivities: nil)
+    }
+    func updateUIViewController(_ uvc: UIActivityViewController, context: Context) {}
 }

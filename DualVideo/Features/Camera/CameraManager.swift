@@ -22,7 +22,7 @@ final class CameraManager: @unchecked Sendable {
     nonisolated(unsafe) private let session = AVCaptureMultiCamSession()
     nonisolated(unsafe) private let sessionQueue = DispatchQueue(
         label: "com.naujgs.DualVideo.session", qos: .userInitiated)
-    nonisolated(unsafe) private let dataOutputQueue = DispatchQueue(
+    nonisolated(unsafe) let dataOutputQueue = DispatchQueue(
         label: "com.naujgs.DualVideo.dataOutput", qos: .userInitiated)
     nonisolated(unsafe) private var backDevice: AVCaptureDevice?
 
@@ -31,6 +31,17 @@ final class CameraManager: @unchecked Sendable {
     // configureAndStart(). Safe to read from UIViewRepresentable on main thread.
     nonisolated(unsafe) private(set) var backPreviewLayer: AVCaptureVideoPreviewLayer
     nonisolated(unsafe) private(set) var frontPreviewLayer: AVCaptureVideoPreviewLayer
+
+    // MARK: - Video outputs (stored so compositor can reference them)
+    nonisolated(unsafe) private(set) var backVideoOutput: AVCaptureVideoDataOutput?
+    nonisolated(unsafe) private(set) var frontVideoOutput: AVCaptureVideoDataOutput?
+
+    // MARK: - Audio outputs (stored so RecordingManager can set delegate)
+    nonisolated(unsafe) private(set) var backAudioOutput: AVCaptureAudioDataOutput?
+    nonisolated(unsafe) private(set) var frontAudioOutput: AVCaptureAudioDataOutput?
+
+    // MARK: - Compositor (set before startSession() by AppState; wired after commitConfiguration)
+    nonisolated(unsafe) var compositor: PiPCompositor?
 
     // MARK: - Observable state (main thread reads/writes via @Observable)
     var backZoomFactor: CGFloat = 1.0
@@ -107,30 +118,37 @@ final class CameraManager: @unchecked Sendable {
         }
         session.addInputWithNoConnections(frontInput)
 
-        // Back video data output (Phase 2 attaches compositor here)
-        let backVideoOutput = AVCaptureVideoDataOutput()
-        backVideoOutput.alwaysDiscardsLateVideoFrames = true
-        guard session.canAddOutput(backVideoOutput) else {
+        // Back video data output (Phase 2: promoted to stored property for compositor wiring)
+        let bvo = AVCaptureVideoDataOutput()
+        bvo.alwaysDiscardsLateVideoFrames = true
+        guard session.canAddOutput(bvo) else {
             session.commitConfiguration()
             handleError("Cannot add back video output")
             return
         }
-        session.addOutputWithNoConnections(backVideoOutput)
+        session.addOutputWithNoConnections(bvo)
+        self.backVideoOutput = bvo
 
-        // Front video data output (Phase 2 attaches compositor here)
-        let frontVideoOutput = AVCaptureVideoDataOutput()
-        frontVideoOutput.alwaysDiscardsLateVideoFrames = true
-        guard session.canAddOutput(frontVideoOutput) else {
+        // Front video data output (Phase 2: promoted to stored property for compositor wiring)
+        let fvo = AVCaptureVideoDataOutput()
+        fvo.alwaysDiscardsLateVideoFrames = true
+        guard session.canAddOutput(fvo) else {
             session.commitConfiguration()
             handleError("Cannot add front video output")
             return
         }
-        session.addOutputWithNoConnections(frontVideoOutput)
+        session.addOutputWithNoConnections(fvo)
+        self.frontVideoOutput = fvo
 
         // Wire connections: back port → back output, front port → front output
+        // videoRotationAngle = 90 rotates delivered pixel buffers 90° CW, correcting the iPhone
+        // sensor's native landscape orientation to portrait for compositor + recorder.
         if let backPort = backInput.ports(for: .video, sourceDeviceType: backCamera.deviceType, sourceDevicePosition: .back).first {
-            let backConn = AVCaptureConnection(inputPorts: [backPort], output: backVideoOutput)
-            if session.canAddConnection(backConn) { session.addConnection(backConn) }
+            let backConn = AVCaptureConnection(inputPorts: [backPort], output: bvo)
+            if session.canAddConnection(backConn) {
+                session.addConnection(backConn)
+                if backConn.isVideoRotationAngleSupported(90) { backConn.videoRotationAngle = 90 }
+            }
 
             // Back preview layer connection
             let backPreviewConn = AVCaptureConnection(inputPort: backPort, videoPreviewLayer: backPreviewLayer)
@@ -138,12 +156,69 @@ final class CameraManager: @unchecked Sendable {
         }
 
         if let frontPort = frontInput.ports(for: .video, sourceDeviceType: frontCamera.deviceType, sourceDevicePosition: .front).first {
-            let frontConn = AVCaptureConnection(inputPorts: [frontPort], output: frontVideoOutput)
-            if session.canAddConnection(frontConn) { session.addConnection(frontConn) }
+            let frontConn = AVCaptureConnection(inputPorts: [frontPort], output: fvo)
+            if session.canAddConnection(frontConn) {
+                session.addConnection(frontConn)
+                if frontConn.isVideoRotationAngleSupported(90) { frontConn.videoRotationAngle = 90 }
+            }
 
             // Front preview layer connection
             let frontPreviewConn = AVCaptureConnection(inputPort: frontPort, videoPreviewLayer: frontPreviewLayer)
             if session.canAddConnection(frontPreviewConn) { session.addConnection(frontPreviewConn) }
+        }
+
+        // Dual-mic audio input (D-05): back-beam + front-beam, blended by AVFoundation
+        if let micDevice = AVCaptureDevice.default(for: .audio),
+           let micInput = try? AVCaptureDeviceInput(device: micDevice),
+           session.canAddInput(micInput) {
+            session.addInputWithNoConnections(micInput)
+
+            let backAudioOut = AVCaptureAudioDataOutput()
+            let frontAudioOut = AVCaptureAudioDataOutput()
+
+            // Track each beam independently so partial failures are logged separately (WR-03)
+            var backAudioWired = false
+            var frontAudioWired = false
+            if session.canAddOutput(backAudioOut) {
+                session.addOutputWithNoConnections(backAudioOut)
+                if let backAudioPort = micInput.ports(
+                    for: .audio,
+                    sourceDeviceType: micDevice.deviceType,
+                    sourceDevicePosition: .back
+                ).first {
+                    let backAudioConn = AVCaptureConnection(inputPorts: [backAudioPort], output: backAudioOut)
+                    if session.canAddConnection(backAudioConn) {
+                        session.addConnection(backAudioConn)
+                        backAudioWired = true
+                        logger.info("CameraManager: back-beam audio output wired")
+                    }
+                }
+            }
+            if session.canAddOutput(frontAudioOut) {
+                session.addOutputWithNoConnections(frontAudioOut)
+                if let frontAudioPort = micInput.ports(
+                    for: .audio,
+                    sourceDeviceType: micDevice.deviceType,
+                    sourceDevicePosition: .front
+                ).first {
+                    let frontAudioConn = AVCaptureConnection(inputPorts: [frontAudioPort], output: frontAudioOut)
+                    if session.canAddConnection(frontAudioConn) {
+                        session.addConnection(frontAudioConn)
+                        frontAudioWired = true
+                        logger.info("CameraManager: front-beam audio output wired")
+                    }
+                }
+            }
+            self.backAudioOutput = backAudioOut
+            self.frontAudioOutput = frontAudioOut
+            if !backAudioWired {
+                logger.warning("CameraManager: back-beam audio wiring failed — no audio will be recorded; check iOS 16.1+ regression")
+            }
+            if !frontAudioWired {
+                logger.warning("CameraManager: front-beam audio wiring failed — front mic unavailable")
+            }
+        } else {
+            logger.warning("CameraManager: microphone input unavailable — no audio will be recorded")
         }
 
         // Explicit commitConfiguration() BEFORE reading hardwareCost.
@@ -151,12 +226,22 @@ final class CameraManager: @unchecked Sendable {
         // stale value. Do NOT use defer here. (Apple docs: hardwareCost valid after commit only.)
         session.commitConfiguration()
 
-        // Hardware cost validation — read AFTER commitConfiguration.
+        // Hardware cost validation — read AFTER commitConfiguration (includes audio inputs).
+        // Re-read hardwareCost after audio inputs added (RESEARCH.md Open Question 3).
         let cost = session.hardwareCost
-        logger.info("AVCaptureMultiCamSession hardwareCost: \(cost, format: .fixed(precision: 3))")
+        logger.info("AVCaptureMultiCamSession hardwareCost (with audio): \(cost, format: .fixed(precision: 3))")
         guard cost < 0.9 else {
-            handleError("Hardware cost \(cost) exceeds 0.9 limit — session not started")
+            handleError("Hardware cost \(cost) after audio exceeds 0.9 — session not started")
             return
+        }
+
+        // Wire compositor as video delegate on both outputs (Phase 2 hookup)
+        if let comp = compositor {
+            comp.backVideoOutput = bvo
+            comp.frontVideoOutput = fvo
+            bvo.setSampleBufferDelegate(comp, queue: dataOutputQueue)
+            fvo.setSampleBufferDelegate(comp, queue: dataOutputQueue)
+            logger.info("CameraManager: PiPCompositor wired as video delegate")
         }
 
         // Associate real session with preview layers before startRunning.
