@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Top-of-screen recording status indicator (D-03).
+/// Recording status indicator shown just above the Record button (D-03).
 /// Shows a blinking red dot + elapsed time in MM:SS format.
 /// No full-screen overlay or border — minimal indicator only (D-03).
 /// Visible only during active recording; hidden when idle or finalizing.

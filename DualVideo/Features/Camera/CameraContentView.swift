@@ -80,19 +80,15 @@ struct CameraContentView: View {
                     )
                     .animation(.interactiveSpring(response: 0.3, dampingFraction: 0.7), value: pipState.offset)
 
-                // Recording status overlay: top of screen, visible during active recording only (D-03)
-                if case .recording = recordingManager.phase {
-                    VStack {
-                        RecordingStatusOverlay(elapsedSeconds: recordingManager.elapsedSeconds)
-                            .padding(.top, geo.safeAreaInsets.top + 8)
-                        Spacer()
-                    }
-                    .transition(.opacity)
-                }
-
-                // Record/Stop button: bottom-center, always visible (D-02)
-                VStack {
+                // Record/Stop button + recording status: bottom-center stack (D-02, D-03)
+                VStack(spacing: 0) {
                     Spacer()
+                    // Recording status indicator: visible just above Record button during active recording (D-03)
+                    if case .recording = recordingManager.phase {
+                        RecordingStatusOverlay(elapsedSeconds: recordingManager.elapsedSeconds)
+                            .padding(.bottom, 10)
+                            .transition(.opacity)
+                    }
                     RecordButton(
                         isRecording: {
                             if case .recording = recordingManager.phase { return true }
