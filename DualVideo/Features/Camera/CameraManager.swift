@@ -148,6 +148,14 @@ final class CameraManager: @unchecked Sendable {
             if session.canAddConnection(backConn) {
                 session.addConnection(backConn)
                 if backConn.isVideoRotationAngleSupported(90) { backConn.videoRotationAngle = 90 }
+                // Explicitly disable mirroring on back camera data output.
+                // AVCaptureMultiCamSession can default isVideoMirrored=true for back camera
+                // connections when videoRotationAngle is applied, causing the recorded frames
+                // to appear horizontally flipped relative to the live preview.
+                if backConn.isVideoMirroringSupported {
+                    backConn.automaticallyAdjustsVideoMirroring = false
+                    backConn.isVideoMirrored = false
+                }
             }
 
             // Back preview layer connection
