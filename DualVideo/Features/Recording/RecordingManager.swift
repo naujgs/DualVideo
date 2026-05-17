@@ -1,6 +1,7 @@
 import AVFoundation
 import Foundation
 import Observation
+import UIKit
 import os.log
 
 private let logger = Logger(subsystem: "com.naujgs.DualVideo", category: "RecordingManager")
@@ -18,7 +19,7 @@ enum RecordingPhase {
 /// Threading: phase and elapsedSeconds are @Observable main-thread properties.
 /// Compositor callbacks arrive on dataOutputQueue and are forwarded to MovieRecorder there.
 @Observable
-final class RecordingManager {
+final class RecordingManager: NSObject, @unchecked Sendable {
 
     // MARK: - Observable state (main thread)
 
@@ -30,6 +31,14 @@ final class RecordingManager {
 
     nonisolated(unsafe) private let recorder = MovieRecorder()
     nonisolated(unsafe) private var timerTask: Task<Void, Never>?
+
+    // MARK: - Init
+
+    override init() {
+        super.init()
+        // Clean up any orphaned .mov temp files from previous crashes (ASVS mitigation T-02-03-01)
+        cleanUpOrphanedTempFiles()
+    }
 
     // MARK: - Test support
 
@@ -44,6 +53,40 @@ final class RecordingManager {
     }
 
     // MARK: - Public API
+
+    /// Wire all session outputs to RecordingManager and register interruption observers.
+    /// Must be called after CameraManager finishes session configuration (i.e., after startSession() completes).
+    /// Call from the main thread after session is running.
+    @MainActor
+    func setup(cameraManager: CameraManager) {
+        // Wire compositor
+        if let compositor = cameraManager.compositor {
+            wireCompositor(compositor)
+        }
+
+        // Set RecordingManager as audio delegate for both beam outputs (D-05)
+        let audioQueue = DispatchQueue(label: "com.naujgs.DualVideo.audioDelegate", qos: .userInitiated)
+        cameraManager.backAudioOutput?.setSampleBufferDelegate(self, queue: audioQueue)
+        cameraManager.frontAudioOutput?.setSampleBufferDelegate(self, queue: audioQueue)
+
+        // Interruption observers (D-06)
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.didEnterBackgroundNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.handleInterruption()
+        }
+        NotificationCenter.default.addObserver(
+            forName: AVCaptureSession.wasInterruptedNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.handleInterruption()
+        }
+
+        logger.info("RecordingManager: setup complete, interruption observers registered")
+    }
 
     /// Start recording. Transitions phase to .recording immediately (D-04: no countdown).
     /// Must be called from the main thread.
@@ -73,7 +116,8 @@ final class RecordingManager {
     }
 
     /// Stop recording. Transitions to .finalizing, finalizes writer, then to .idle.
-    /// completion called on an arbitrary queue with the output URL (or nil on failure).
+    /// Uses UIApplication.beginBackgroundTask to allow finalization even if app backgrounds (D-06).
+    /// completion called on the main queue with the output URL (or nil on failure).
     @MainActor
     func stopRecording(completion: @escaping (URL?) -> Void = { _ in }) {
         guard case .recording = phase else {
@@ -86,20 +130,29 @@ final class RecordingManager {
         timerTask = nil
         phase = .finalizing
 
+        // Acquire background task to ensure finalization completes even if app backgrounds (T-02-03-02)
+        let bgTask = UIApplication.shared.beginBackgroundTask(withName: "finalize-recording") {
+            // OS-triggered expiration: cancel to avoid corruption
+            logger.error("RecordingManager: background task expired — cancelling recorder")
+            self.recorder.cancelAndDiscard()
+            UIApplication.shared.endBackgroundTask(.invalid)
+        }
+
         recorder.stopAndFinalize { [weak self] url in
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
                 self.pendingFileURL = url
                 self.phase = .idle
                 self.elapsedSeconds = 0
-                logger.info("RecordingManager: finalized, url=\(url?.lastPathComponent ?? "nil")")
+                UIApplication.shared.endBackgroundTask(bgTask)
+                logger.info("RecordingManager: finalized, bgTask ended, url=\(url?.lastPathComponent ?? "nil")")
                 completion(url)
             }
         }
     }
 
     /// Interrupt handler — auto-stop for phone calls / backgrounding (D-06).
-    /// Called from RecordingManager interrupt observer (wired in Plan 02-03).
+    /// Called from interruption observers registered in setup(cameraManager:).
     @MainActor
     func handleInterruption() {
         guard case .recording = phase else { return }
@@ -107,7 +160,7 @@ final class RecordingManager {
         stopRecording()
     }
 
-    /// Wire compositor output to recorder. Called by Plan 02-03 after compositor is set up.
+    /// Wire compositor output to recorder. Called by setup(cameraManager:) after compositor is set up.
     /// compositor.onComposited is called on dataOutputQueue — recorder appends there.
     func wireCompositor(_ compositor: PiPCompositor) {
         compositor.onComposited = { [weak self] pixelBuffer, pts in
@@ -116,8 +169,36 @@ final class RecordingManager {
         }
     }
 
-    /// Forward audio sample buffer to recorder (called on dataOutputQueue by audio delegate in Plan 02-03).
+    /// Forward audio sample buffer to recorder (called on dataOutputQueue by audio delegate).
     func appendAudioBuffer(_ sampleBuffer: CMSampleBuffer) {
         recorder.appendAudioBuffer(sampleBuffer)
+    }
+
+    // MARK: - Private helpers
+
+    private func cleanUpOrphanedTempFiles() {
+        let tmpDir = FileManager.default.temporaryDirectory
+        guard let contents = try? FileManager.default.contentsOfDirectory(
+            at: tmpDir, includingPropertiesForKeys: nil, options: .skipsHiddenFiles
+        ) else { return }
+        let orphans = contents.filter { $0.pathExtension == "mov" }
+        for url in orphans {
+            try? FileManager.default.removeItem(at: url)
+            logger.info("RecordingManager: removed orphaned temp file \(url.lastPathComponent)")
+        }
+    }
+}
+
+// MARK: - AVCaptureAudioDataOutputSampleBufferDelegate
+
+extension RecordingManager: AVCaptureAudioDataOutputSampleBufferDelegate {
+    /// Called on audioDelegate queue by both back and front audio outputs (D-05).
+    /// Both beams go to the same recorder audio track (blended approach per D-05).
+    nonisolated func captureOutput(
+        _ output: AVCaptureOutput,
+        didOutput sampleBuffer: CMSampleBuffer,
+        from connection: AVCaptureConnection
+    ) {
+        appendAudioBuffer(sampleBuffer)
     }
 }

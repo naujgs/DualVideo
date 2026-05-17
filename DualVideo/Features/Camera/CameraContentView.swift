@@ -121,5 +121,17 @@ struct CameraContentView: View {
             }
         }
         .ignoresSafeArea()
+        .onChange(of: cameraManager.isSessionRunning) { _, isRunning in
+            if isRunning {
+                Task { @MainActor in
+                    recordingManager.setup(cameraManager: cameraManager)
+                }
+            }
+        }
+        .onChange(of: pipState.offset) { _, newOffset in
+            Task { @MainActor in
+                cameraManager.compositor?.updatePiPOffset(newOffset)
+            }
+        }
     }
 }
