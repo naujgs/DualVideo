@@ -33,14 +33,14 @@ Plans:
 **Requirements**: CAP-04, REC-01, REC-02, REC-03, REC-04
 **Success Criteria** (what must be TRUE):
   1. Record/Stop creates a valid 1080p `.mov` file every run.
-  2. Countdown + elapsed timer accurately reflect recording lifecycle.
+  2. Elapsed timer accurately reflects recording lifecycle (no countdown per D-04).
   3. Recording survives normal app interruptions without corrupt output.
 **Plans**: 3 plans
 
 Plans:
-- [ ] 02-01: Implement `PiPCompositor` Metal pipeline with synchronized frame ingest
-- [ ] 02-02: Implement `MovieRecorder` `AVAssetWriter` state machine and audio session integration
-- [ ] 02-03: Wire recording controls/state model (countdown, timer, start/stop, interruption handling)
+- [ ] 02-01-PLAN.md — PiPCompositor Core Image pipeline (CISourceOverCompositing), AVCaptureVideoDataOutputSampleBufferDelegate, synthetic buffer unit tests
+- [ ] 02-02-PLAN.md — MovieRecorder AVAssetWriter state machine (H.264/AAC), RecordingManager coordinator + elapsed timer, RecordButton + RecordingStatusOverlay UI wired into CameraContentView
+- [ ] 02-03-PLAN.md — Wire compositor + dual-mic audio into CameraManager, interruption auto-stop (D-06), orphaned temp file cleanup, end-to-end device validation
 
 ### Phase 3: Save, Polish, and Edge Cases
 **Goal**: Save recordings to Photos automatically and complete core UX polish features.
@@ -61,6 +61,6 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation - Permissions, Session, Live Preview | 0/3 | Ready to execute | - |
-| 2. Recording Pipeline - Compositor, Writer, Audio | 0/3 | Not started | - |
+| 1. Foundation - Permissions, Session, Live Preview | 3/3 | Complete | 2026-05-16 |
+| 2. Recording Pipeline - Compositor, Writer, Audio | 0/3 | Ready to execute | - |
 | 3. Save, Polish, and Edge Cases | 0/3 | Not started | - |
