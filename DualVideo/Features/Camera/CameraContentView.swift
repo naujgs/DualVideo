@@ -3,6 +3,7 @@ import AVFoundation
 
 struct CameraContentView: View {
     let cameraManager: CameraManager
+    let recordingManager: RecordingManager
 
     @State private var pipState = PiPOverlayState()
     @State private var activeZoomBase: CGFloat = 1.0  // zoom at gesture start
@@ -78,8 +79,45 @@ struct CameraContentView: View {
                             }
                     )
                     .animation(.interactiveSpring(response: 0.3, dampingFraction: 0.7), value: pipState.offset)
+
+                // Recording status overlay: top of screen, visible during active recording only (D-03)
+                if case .recording = recordingManager.phase {
+                    VStack {
+                        RecordingStatusOverlay(elapsedSeconds: recordingManager.elapsedSeconds)
+                            .padding(.top, geo.safeAreaInsets.top + 8)
+                        Spacer()
+                    }
+                    .transition(.opacity)
+                }
+
+                // Record/Stop button: bottom-center, always visible (D-02)
+                VStack {
+                    Spacer()
+                    RecordButton(
+                        isRecording: {
+                            if case .recording = recordingManager.phase { return true }
+                            return false
+                        }(),
+                        isFinalizing: {
+                            if case .finalizing = recordingManager.phase { return true }
+                            return false
+                        }(),
+                        onTap: {
+                            if case .recording = recordingManager.phase {
+                                recordingManager.stopRecording()
+                            } else if case .idle = recordingManager.phase {
+                                recordingManager.startRecording()
+                            }
+                        }
+                    )
+                    .padding(.bottom, geo.safeAreaInsets.bottom + 24)
+                }
             }
             .background(Color.black)
+            .animation(.easeInOut(duration: 0.3), value: {
+                if case .recording = recordingManager.phase { return 1 }
+                return 0
+            }())
             .onAppear {
                 safeAreaInsets = geo.safeAreaInsets
                 // Sync zoom baseline to current device zoom (e.g. after app resume)
