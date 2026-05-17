@@ -58,10 +58,10 @@ final class MovieRecorder {
             // Video input: H.264 1080p with hardware-acceleration friendly settings
             let videoSettings: [String: Any] = [
                 AVVideoCodecKey: AVVideoCodecType.h264,
-                AVVideoWidthKey: 1920,
-                AVVideoHeightKey: 1080,
+                AVVideoWidthKey: 1080,
+                AVVideoHeightKey: 1920,
                 AVVideoCompressionPropertiesKey: [
-                    AVVideoAverageBitRateKey: 10_000_000,  // 10 Mbps H.264 for 1080p
+                    AVVideoAverageBitRateKey: 10_000_000,  // 10 Mbps H.264 for 1080p portrait
                     AVVideoMaxKeyFrameIntervalKey: 30       // keyframe every 1 second at 30fps
                 ]
             ]
@@ -74,8 +74,8 @@ final class MovieRecorder {
                 assetWriterInput: vInput,
                 sourcePixelBufferAttributes: [
                     kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
-                    kCVPixelBufferWidthKey as String: 1920,
-                    kCVPixelBufferHeightKey as String: 1080
+                    kCVPixelBufferWidthKey as String: 1080,
+                    kCVPixelBufferHeightKey as String: 1920
                 ]
             )
 

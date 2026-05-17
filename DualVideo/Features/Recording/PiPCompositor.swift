@@ -27,9 +27,9 @@ final class PiPCompositor: NSObject {
     // MARK: - Core Image context (created ONCE on init — never inside composite())
     private let ciContext: CIContext
 
-    // MARK: - Output dimensions
-    static let outputWidth = 1920
-    static let outputHeight = 1080
+    // MARK: - Output dimensions (portrait: frames arrive pre-rotated 90° by videoRotationAngle)
+    static let outputWidth = 1080
+    static let outputHeight = 1920
 
     // MARK: - PiP offset snapshot (thread-safe: written on main, read on dataOutputQueue)
     /// Snapshot of PiPOverlayState.offset. Updated from the main thread via updatePiPOffset(_:).
@@ -190,13 +190,13 @@ extension PiPCompositor: AVCaptureVideoDataOutputSampleBufferDelegate {
         let offset = pipOffsetSnapshot
         // PiP: 28% of 1920 wide, 4:3 aspect, positioned at offset from top-right of 1920x1080 space.
         // Top-right anchor in 1920×1080: x = 1920 - pipWidth - margin, y = margin
-        let pipWidth: CGFloat = 1920 * 0.28
+        let pipWidth: CGFloat = CGFloat(Self.outputWidth) * 0.28
         let pipHeight: CGFloat = pipWidth * (4.0 / 3.0)
         let screenWidth = UIScreen.main.bounds.width
         let screenScale = UIScreen.main.scale
-        let margin: CGFloat = PiPOverlayState.edgeMargin / screenScale * (1920.0 / screenWidth)
-        // Scale UI-space offset to 1920×1080 output space
-        let scaleToOutput = 1920.0 / screenWidth
+        let margin: CGFloat = PiPOverlayState.edgeMargin / screenScale * (CGFloat(Self.outputWidth) / screenWidth)
+        // Scale UI-space offset to output space (portrait: 1080 wide)
+        let scaleToOutput = CGFloat(Self.outputWidth) / screenWidth
         let xAnchor = CGFloat(Self.outputWidth) - pipWidth - margin
         let yAnchor = margin
         let pipRect = CGRect(

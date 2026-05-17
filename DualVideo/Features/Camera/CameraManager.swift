@@ -141,9 +141,14 @@ final class CameraManager: @unchecked Sendable {
         self.frontVideoOutput = fvo
 
         // Wire connections: back port → back output, front port → front output
+        // videoRotationAngle = 90 rotates delivered pixel buffers 90° CW, correcting the iPhone
+        // sensor's native landscape orientation to portrait for compositor + recorder.
         if let backPort = backInput.ports(for: .video, sourceDeviceType: backCamera.deviceType, sourceDevicePosition: .back).first {
             let backConn = AVCaptureConnection(inputPorts: [backPort], output: bvo)
-            if session.canAddConnection(backConn) { session.addConnection(backConn) }
+            if session.canAddConnection(backConn) {
+                session.addConnection(backConn)
+                if backConn.isVideoRotationAngleSupported(90) { backConn.videoRotationAngle = 90 }
+            }
 
             // Back preview layer connection
             let backPreviewConn = AVCaptureConnection(inputPort: backPort, videoPreviewLayer: backPreviewLayer)
@@ -152,7 +157,10 @@ final class CameraManager: @unchecked Sendable {
 
         if let frontPort = frontInput.ports(for: .video, sourceDeviceType: frontCamera.deviceType, sourceDevicePosition: .front).first {
             let frontConn = AVCaptureConnection(inputPorts: [frontPort], output: fvo)
-            if session.canAddConnection(frontConn) { session.addConnection(frontConn) }
+            if session.canAddConnection(frontConn) {
+                session.addConnection(frontConn)
+                if frontConn.isVideoRotationAngleSupported(90) { frontConn.videoRotationAngle = 90 }
+            }
 
             // Front preview layer connection
             let frontPreviewConn = AVCaptureConnection(inputPort: frontPort, videoPreviewLayer: frontPreviewLayer)
