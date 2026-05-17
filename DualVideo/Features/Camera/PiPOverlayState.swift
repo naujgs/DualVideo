@@ -2,8 +2,8 @@ import SwiftUI
 import Observation
 
 /// Observable state for the draggable front-camera PiP overlay.
-/// Encapsulates drag offset tracking and safe-area clamp logic (D-07).
-/// Does NOT implement corner snapping — that is deferred to Phase 3 (D-08).
+/// Encapsulates drag offset tracking, safe-area clamp logic (D-07),
+/// and corner snapping with cross-launch persistence (D-08, Phase 3).
 @Observable
 final class PiPOverlayState {
     /// Current applied position offset from the default top-right anchor (D-05).
@@ -30,16 +30,18 @@ final class PiPOverlayState {
         offset = clampedOffset(proposed: proposed, containerSize: containerSize, pipSize: pipSize, safeAreaInsets: safeAreaInsets)
     }
 
-    /// Finalize offset on drag end. Clamps and saves as new base.
+    /// Finalize offset on drag end. Clamps then snaps to nearest corner (D-08, Phase 3).
     func endDrag(translation: CGSize, containerSize: CGSize, pipSize: CGSize, safeAreaInsets: EdgeInsets) {
         let proposed = CGSize(
             width: baseOffset.width + translation.width,
             height: baseOffset.height + translation.height
         )
+        // Clamp first so snap candidates are within safe bounds
         let clamped = clampedOffset(proposed: proposed, containerSize: containerSize, pipSize: pipSize, safeAreaInsets: safeAreaInsets)
         offset = clamped
         baseOffset = clamped
-        // NOTE: no corner snapping — D-08 deferred to Phase 3
+        // D-08: snap to nearest corner (Phase 3)
+        snapToNearestCorner(containerSize: containerSize, pipSize: pipSize, safeAreaInsets: safeAreaInsets)
     }
 
     /// Pure function: compute safe-area-clamped offset from a proposed offset.
@@ -80,5 +82,63 @@ final class PiPOverlayState {
         let clampedOffsetY = yAbs - yAnchor
 
         return CGSize(width: clampedOffsetX, height: clampedOffsetY)
+    }
+
+    // MARK: - Corner snapping (D-08, Phase 3)
+
+    /// Corner index convention: 0=top-right (default), 1=top-left, 2=bottom-right, 3=bottom-left
+    private static let cornerKey = "pip_corner_index"
+
+    /// Snap PiP to the nearest corner using spring animation. Persists corner index to UserDefaults.
+    /// Replaces the plain clamp behavior in endDrag (D-08).
+    func snapToNearestCorner(containerSize: CGSize, pipSize: CGSize, safeAreaInsets: EdgeInsets) {
+        let margin = Self.edgeMargin
+        let xRight: CGFloat = 0
+        let xLeft  = -(containerSize.width - pipSize.width - 2 * margin)
+        let yTop:   CGFloat = 0
+        let yBottom = containerSize.height - safeAreaInsets.top - safeAreaInsets.bottom - pipSize.height - 2 * margin
+
+        let corners: [(index: Int, offset: CGSize)] = [
+            (0, CGSize(width: xRight, height: yTop)),
+            (1, CGSize(width: xLeft,  height: yTop)),
+            (2, CGSize(width: xRight, height: yBottom)),
+            (3, CGSize(width: xLeft,  height: yBottom)),
+        ]
+
+        let nearest = corners.min { a, b in
+            euclidean(offset, a.offset) < euclidean(offset, b.offset)
+        }!
+
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+            offset = nearest.offset
+            baseOffset = nearest.offset
+        }
+        UserDefaults.standard.set(nearest.index, forKey: Self.cornerKey)
+    }
+
+    /// Restore PiP to the corner stored in UserDefaults. Call from onAppear with current geometry.
+    func restorePersistedCorner(containerSize: CGSize, pipSize: CGSize, safeAreaInsets: EdgeInsets) {
+        let index = UserDefaults.standard.integer(forKey: Self.cornerKey)
+        let margin = Self.edgeMargin
+        let xRight: CGFloat = 0
+        let xLeft  = -(containerSize.width - pipSize.width - 2 * margin)
+        let yTop:   CGFloat = 0
+        let yBottom = containerSize.height - safeAreaInsets.top - safeAreaInsets.bottom - pipSize.height - 2 * margin
+
+        let targetOffset: CGSize
+        switch index {
+        case 1: targetOffset = CGSize(width: xLeft,  height: yTop)
+        case 2: targetOffset = CGSize(width: xRight, height: yBottom)
+        case 3: targetOffset = CGSize(width: xLeft,  height: yBottom)
+        default: targetOffset = .zero  // index 0: top-right default
+        }
+        offset = targetOffset
+        baseOffset = targetOffset
+    }
+
+    private func euclidean(_ a: CGSize, _ b: CGSize) -> CGFloat {
+        let dx = a.width - b.width
+        let dy = a.height - b.height
+        return sqrt(dx * dx + dy * dy)
     }
 }
