@@ -137,6 +137,12 @@ struct CameraContentView: View {
                 safeAreaInsets = geo.safeAreaInsets
                 // Sync zoom baseline to current device zoom (e.g. after app resume)
                 activeZoomBase = cameraManager.backZoomFactor
+                // OUT-03: restore PiP to last-used corner using current screen geometry
+                pipState.restorePersistedCorner(
+                    containerSize: geo.size,
+                    pipSize: pipSize,
+                    safeAreaInsets: geo.safeAreaInsets
+                )
             }
         }
         .ignoresSafeArea()
