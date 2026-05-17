@@ -81,15 +81,27 @@ final class RecordingManager: NSObject, @unchecked Sendable {
             forName: UIApplication.didEnterBackgroundNotification,
             object: nil,
             queue: .main
-        ) { [weak self] _ in
-            self?.handleInterruption()
+        ) { [weak self, weak cameraManager] _ in
+            self?.handleInterruption(cameraManager: cameraManager)
         }
         NotificationCenter.default.addObserver(
             forName: AVCaptureSession.wasInterruptedNotification,
             object: nil,
             queue: .main
-        ) { [weak self] _ in
-            self?.handleInterruption()
+        ) { [weak self, weak cameraManager] _ in
+            self?.handleInterruption(cameraManager: cameraManager)
+        }
+
+        // Interruption recovery (RESEARCH.md Pattern 5): when OS re-enables camera after phone call,
+        // sync session running state so preview recovers without user action.
+        NotificationCenter.default.addObserver(
+            forName: AVCaptureSession.interruptionEndedNotification,
+            object: nil,
+            queue: .main
+        ) { [weak cameraManager] _ in
+            // If session auto-restarted, reflect that in observable state
+            cameraManager?.syncSessionRunningState()
+            logger.info("RecordingManager: interruptionEnded — synced session running state")
         }
 
         logger.info("RecordingManager: setup complete, interruption observers registered")
@@ -176,10 +188,12 @@ final class RecordingManager: NSObject, @unchecked Sendable {
 
     /// Interrupt handler — auto-stop for phone calls / backgrounding (D-06).
     /// Called from interruption observers registered in setup(cameraManager:).
+    /// Turns torch off before stopping to prevent battery drain (T-03-03-01).
     @MainActor
-    func handleInterruption() {
+    func handleInterruption(cameraManager: CameraManager? = nil) {
         guard case .recording = phase else { return }
         logger.info("RecordingManager: interruption detected — auto-stopping")
+        cameraManager?.turnTorchOff()
         stopRecording()
     }
 
