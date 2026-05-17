@@ -25,6 +25,8 @@
 		1A000012 /* CameraManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000012 /* CameraManagerTests.swift */; };
 		1A000020 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1B000020 /* AVFoundation.framework */; };
 		1A000021 /* Photos.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1B000021 /* Photos.framework */; };
+		1A000030 /* PiPCompositor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000030 /* PiPCompositor.swift */; };
+		1A000031 /* PiPCompositorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000031 /* PiPCompositorTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -46,6 +48,8 @@
 		1B000014 /* ZoomClampTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZoomClampTests.swift; sourceTree = "<group>"; };
 		1B000020 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
 		1B000021 /* Photos.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Photos.framework; path = System/Library/Frameworks/Photos.framework; sourceTree = SDKROOT; };
+		1B000030 /* PiPCompositor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiPCompositor.swift; sourceTree = "<group>"; };
+		1B000031 /* PiPCompositorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiPCompositorTests.swift; sourceTree = "<group>"; };
 		1C000001 /* DualVideo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DualVideo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1C000002 /* DualVideoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DualVideoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -112,8 +116,17 @@
 			children = (
 				1E000013 /* Camera */,
 				1E000014 /* Root */,
+				1E000015 /* Recording */,
 			);
 			path = Features;
+			sourceTree = "<group>";
+		};
+		1E000015 /* Recording */ = {
+			isa = PBXGroup;
+			children = (
+				1B000030 /* PiPCompositor.swift */,
+			);
+			path = Recording;
 			sourceTree = "<group>";
 		};
 		1E000012 /* Shared */ = {
@@ -162,6 +175,7 @@
 				1B000012 /* CameraManagerTests.swift */,
 				1B000013 /* PiPDragClampTests.swift */,
 				1B000014 /* ZoomClampTests.swift */,
+				1B000031 /* PiPCompositorTests.swift */,
 			);
 			path = UnitTests;
 			sourceTree = "<group>";
@@ -276,6 +290,7 @@
 				1A000009 /* CameraPreviewView.swift in Sources */,
 				1A00000A /* CameraContentView.swift in Sources */,
 				1A00000B /* PiPOverlayState.swift in Sources */,
+				1A000030 /* PiPCompositor.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -288,6 +303,7 @@
 				1A000012 /* CameraManagerTests.swift in Sources */,
 				1A000013 /* PiPDragClampTests.swift in Sources */,
 				1A000014 /* ZoomClampTests.swift in Sources */,
+				1A000031 /* PiPCompositorTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
