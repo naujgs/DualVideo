@@ -211,3 +211,35 @@ All five T-02-03 threats mitigated as planned:
 - All 29 tests PASSED on iOS 18.5 simulator
 
 ## Self-Check: PASSED
+
+---
+
+## Device Verification Results (iPhone XR, iOS 18.7.9)
+
+Three additional bugs were discovered and fixed during on-device testing after the executor agent completed.
+
+### Bug 1 — Wave 3 worktree never merged to phase_2
+- **Symptom:** `stop called before first frame — cancelling writer`; `url=nil` on every attempt
+- **Root cause:** Cherry-pick of worktree commit `cb25c63` onto `phase_2` was never performed. `setup(cameraManager:)`, compositor wiring, and audio delegate code existed only on the worktree branch.
+- **Fix:** `git cherry-pick cb25c63` → commit `099c0d8`
+
+### Bug 2 — Audio 2× duration / slow playback / noise
+- **Symptom:** Video at half speed; audio noisy; ffprobe: audio 22.22s vs video 11.11s
+- **Root cause:** Both `backAudioOutput` and `frontAudioOutput` registered as delegate, each independently delivering a full sample stream to the same `AVAssetWriterInput`. 2× samples → 2× duration.
+- **Fix:** Use only `backAudioOutput` as audio delegate. → commit `fb6e211`
+
+### Bug 3 — Portrait recording saved as landscape
+- **Symptom:** 10s portrait recording opened landscape in QuickTime
+- **Root cause:** `AVCaptureVideoDataOutput` delivers raw sensor-native landscape frames (1920×1080). Compositor and writer accepted them without rotation.
+- **Fix:** Set `videoRotationAngle = 90` on both video data output connections. Updated `PiPCompositor.outputWidth/Height` to 1080×1920 and `MovieRecorder` video + adaptor settings to 1080×1920. → commit `2d29a0e`
+
+### Checkpoint Results
+
+| # | Test | Result |
+|---|------|--------|
+| 1 | Basic 10s recording, non-nil URL | ✅ PASS |
+| 2 | Audio present, clean | ✅ PASS |
+| 3 | Portrait orientation | ✅ PASS |
+| 4 | PiP inset baked into recording | ✅ PASS |
+| 5 | hardwareCost = 0.667 (< 0.9) | ✅ PASS |
+| 6 | Interruption: Home button auto-stops, non-nil URL | ✅ PASS |
