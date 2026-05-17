@@ -85,7 +85,7 @@ struct CameraContentView: View {
                 if case .recording = recordingManager.phase {
                     VStack {
                         RecordingStatusOverlay(elapsedSeconds: recordingManager.elapsedSeconds)
-                            .padding(.top, geo.safeAreaInsets.top + 8)
+                            .padding(.top, geo.safeAreaInsets.top + 20)
                             .transition(.opacity)
                         Spacer()
                     }
