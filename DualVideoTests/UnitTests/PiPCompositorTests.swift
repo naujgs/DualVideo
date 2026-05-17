@@ -3,6 +3,7 @@ import CoreVideo
 import CoreImage
 @testable import DualVideo
 
+@MainActor
 final class PiPCompositorTests: XCTestCase {
 
     // MARK: - Helpers
