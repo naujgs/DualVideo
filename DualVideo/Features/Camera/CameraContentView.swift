@@ -81,32 +81,36 @@ struct CameraContentView: View {
                     )
                     .animation(.interactiveSpring(response: 0.3, dampingFraction: 0.7), value: pipState.offset)
 
-                // OUT-04: Zoom label + Torch button — left column, above home indicator
+                // Recording counter — top-center, below Dynamic Island / notch
+                if case .recording = recordingManager.phase {
+                    VStack {
+                        RecordingStatusOverlay(elapsedSeconds: recordingManager.elapsedSeconds)
+                            .padding(.top, geo.safeAreaInsets.top + 8)
+                            .transition(.opacity)
+                        Spacer()
+                    }
+                }
+
+                // Torch button — left column, above home indicator
                 VStack {
                     Spacer()
                     HStack {
-                        VStack(spacing: 8) {
-                            TorchToggleButton(
-                                isTorchOn: cameraManager.isTorchOn,
-                                onTap: { cameraManager.toggleTorch() }
-                            )
-                            ZoomLabelView(zoomFactor: cameraManager.backZoomFactor)
-                        }
+                        TorchToggleButton(
+                            isTorchOn: cameraManager.isTorchOn,
+                            onTap: { cameraManager.toggleTorch() }
+                        )
                         .padding(.leading, 20)
                         .padding(.bottom, geo.safeAreaInsets.bottom + 24)
                         Spacer()
                     }
                 }
 
-                // Record/Stop button + recording status + save banner: bottom-center stack
+                // Record/Stop button + zoom label + save banner: bottom-center stack
                 VStack(spacing: 0) {
                     Spacer()
-                    // Recording status indicator: visible just above Record button during active recording (D-03)
-                    if case .recording = recordingManager.phase {
-                        RecordingStatusOverlay(elapsedSeconds: recordingManager.elapsedSeconds)
-                            .padding(.bottom, 10)
-                            .transition(.opacity)
-                    }
+                    // Zoom label: always visible just above the record button
+                    ZoomLabelView(zoomFactor: cameraManager.backZoomFactor)
+                        .padding(.bottom, 10)
                     // Transient success banner: appears 2.5s after successful save (OUT-02)
                     if case .success = recordingManager.saveResult {
                         Text("Saved to Photos")
