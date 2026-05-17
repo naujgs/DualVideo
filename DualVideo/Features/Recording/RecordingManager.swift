@@ -26,10 +26,13 @@ final class RecordingManager: NSObject, @unchecked Sendable {
     var phase: RecordingPhase = .idle
     var elapsedSeconds: Int = 0
     var pendingFileURL: URL? = nil
+    /// Result of the most recent auto-save attempt. nil = no save attempted yet.
+    var saveResult: Result<Void, PhotoSaveError>? = nil
 
     // MARK: - Internals
 
     nonisolated(unsafe) private let recorder = MovieRecorder()
+    nonisolated(unsafe) private let photoSaver = PhotoSaveManager()
     nonisolated(unsafe) private var timerTask: Task<Void, Never>?
     /// Retained so startRecording() can bridge the pixel buffer pool to the compositor (WR-02).
     nonisolated(unsafe) private weak var compositor: PiPCompositor?
@@ -155,8 +158,19 @@ final class RecordingManager: NSObject, @unchecked Sendable {
                 self.elapsedSeconds = 0
                 UIApplication.shared.endBackgroundTask(bgTask)
                 logger.info("RecordingManager: finalized, bgTask ended, url=\(url?.lastPathComponent ?? "nil")")
+                if let url { self.saveRecording(url: url) }
                 completion(url)
             }
+        }
+    }
+
+    /// Trigger Photos auto-save for the given URL. Called from stopRecording completion.
+    @MainActor
+    private func saveRecording(url: URL) {
+        photoSaver.saveVideoToPhotos(url: url) { [weak self] result in
+            // Already dispatched to main by PhotoSaveManager
+            self?.saveResult = result
+            if case .success = result { self?.pendingFileURL = nil }
         }
     }
 
