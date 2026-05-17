@@ -81,6 +81,23 @@ struct CameraContentView: View {
                     )
                     .animation(.interactiveSpring(response: 0.3, dampingFraction: 0.7), value: pipState.offset)
 
+                // OUT-04: Zoom label + Torch button — left column, above home indicator
+                VStack {
+                    Spacer()
+                    HStack {
+                        VStack(spacing: 8) {
+                            TorchToggleButton(
+                                isTorchOn: cameraManager.isTorchOn,
+                                onTap: { cameraManager.toggleTorch() }
+                            )
+                            ZoomLabelView(zoomFactor: cameraManager.backZoomFactor)
+                        }
+                        .padding(.leading, 20)
+                        .padding(.bottom, geo.safeAreaInsets.bottom + 24)
+                        Spacer()
+                    }
+                }
+
                 // Record/Stop button + recording status + save banner: bottom-center stack
                 VStack(spacing: 0) {
                     Spacer()
