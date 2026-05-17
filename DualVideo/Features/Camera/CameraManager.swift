@@ -168,6 +168,13 @@ final class CameraManager: @unchecked Sendable {
             if session.canAddConnection(frontConn) {
                 session.addConnection(frontConn)
                 if frontConn.isVideoRotationAngleSupported(90) { frontConn.videoRotationAngle = 90 }
+                // Disable mirroring on front camera data output.
+                // Front camera connections default isVideoMirrored=true (selfie mirror behavior).
+                // For recorded video, un-mirror so content matches physical reality.
+                if frontConn.isVideoMirroringSupported {
+                    frontConn.automaticallyAdjustsVideoMirroring = false
+                    frontConn.isVideoMirrored = false
+                }
             }
 
             // Front preview layer connection
