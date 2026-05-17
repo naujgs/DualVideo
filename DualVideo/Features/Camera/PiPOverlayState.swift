@@ -30,17 +30,13 @@ final class PiPOverlayState {
         offset = clampedOffset(proposed: proposed, containerSize: containerSize, pipSize: pipSize, safeAreaInsets: safeAreaInsets)
     }
 
-    /// Finalize offset on drag end. Clamps then snaps to nearest corner (D-08, Phase 3).
+    /// Finalize offset on drag end. Snaps to nearest corner with spring animation (D-08, Phase 3).
+    ///
+    /// Do NOT set offset/baseOffset here before calling snapToNearestCorner — doing so fires the
+    /// view's implicit .animation(.interactiveSpring) modifier, which conflicts with the explicit
+    /// withAnimation(.spring) inside snapToNearestCorner and produces a two-phase, jerky motion.
+    /// updateDrag already clamps offset on every call, so self.offset is correct when this fires.
     func endDrag(translation: CGSize, containerSize: CGSize, pipSize: CGSize, safeAreaInsets: EdgeInsets) {
-        let proposed = CGSize(
-            width: baseOffset.width + translation.width,
-            height: baseOffset.height + translation.height
-        )
-        // Clamp first so snap candidates are within safe bounds
-        let clamped = clampedOffset(proposed: proposed, containerSize: containerSize, pipSize: pipSize, safeAreaInsets: safeAreaInsets)
-        offset = clamped
-        baseOffset = clamped
-        // D-08: snap to nearest corner (Phase 3)
         snapToNearestCorner(containerSize: containerSize, pipSize: pipSize, safeAreaInsets: safeAreaInsets)
     }
 

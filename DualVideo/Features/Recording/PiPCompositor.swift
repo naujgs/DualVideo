@@ -39,7 +39,9 @@ final class PiPCompositor: NSObject {
 
     // MARK: - Screen metric snapshots (CR-01: UIScreen.main is @MainActor — must not be read on dataOutputQueue)
     /// Snapshot of UIScreen.main.bounds.width. Updated from the main thread via updateScreenMetrics().
-    nonisolated(unsafe) private(set) var screenWidthSnapshot: CGFloat = 393  // safe default for portrait iPhone
+    nonisolated(unsafe) private(set) var screenWidthSnapshot: CGFloat = 393   // safe default for portrait iPhone
+    /// Snapshot of UIScreen.main.bounds.height. Updated from the main thread via updateScreenMetrics().
+    nonisolated(unsafe) private(set) var screenHeightSnapshot: CGFloat = 852  // safe default for portrait iPhone
     /// Snapshot of UIScreen.main.scale. Updated from the main thread via updateScreenMetrics().
     nonisolated(unsafe) private(set) var screenScaleSnapshot: CGFloat = 2.0
 
@@ -92,6 +94,7 @@ final class PiPCompositor: NSObject {
     @MainActor
     func updateScreenMetrics() {
         screenWidthSnapshot = UIScreen.main.bounds.width
+        screenHeightSnapshot = UIScreen.main.bounds.height
         screenScaleSnapshot = UIScreen.main.scale
     }
 
@@ -202,24 +205,33 @@ extension PiPCompositor: AVCaptureVideoDataOutputSampleBufferDelegate {
 
         // Compute pipRect from offset snapshot (read pipOffsetSnapshot — safe on dataOutputQueue)
         let offset = pipOffsetSnapshot
-        // PiP: 28% of 1920 wide, 4:3 aspect, positioned at offset from top-right of 1920x1080 space.
-        // Top-right anchor in 1920×1080: x = 1920 - pipWidth - margin, y = margin
         let pipWidth: CGFloat = CGFloat(Self.outputWidth) * 0.28
         let pipHeight: CGFloat = pipWidth * (4.0 / 3.0)
         // Use cached screen metrics — UIScreen.main is @MainActor and must not be read here (CR-01)
         let screenWidth = screenWidthSnapshot
-        let screenScale = screenScaleSnapshot
-        let margin: CGFloat = PiPOverlayState.edgeMargin / screenScale * (CGFloat(Self.outputWidth) / screenWidth)
-        // Scale UI-space offset to output space (portrait: 1080 wide)
-        let scaleToOutput = CGFloat(Self.outputWidth) / screenWidth
-        let xAnchor = CGFloat(Self.outputWidth) - pipWidth - margin
-        let yAnchor = margin
-        let pipRect = CGRect(
-            x: xAnchor + offset.width * scaleToOutput,
-            y: yAnchor + offset.height * scaleToOutput,
-            width: pipWidth,
-            height: pipHeight
-        )
+        let screenHeight = screenHeightSnapshot
+        // Separate scale factors for X and Y: output (1080×1920) and screen (e.g. 393×852) have
+        // different aspect ratios. Using a single scaleToOutput = outputWidth/screenWidth for the
+        // Y axis over-scales vertical offsets, pushing the PiP out of bounds for bottom corners.
+        let scaleX = CGFloat(Self.outputWidth) / screenWidth
+        let scaleY = CGFloat(Self.outputHeight) / screenHeight
+        let margin: CGFloat = PiPOverlayState.edgeMargin * scaleX
+
+        // Coordinate system correction: CVPixelBuffers delivered by AVCaptureVideoDataOutput with
+        // videoRotationAngle=90 have both X and Y axes inverted relative to SwiftUI coordinates.
+        // Without correction, top-right in the UI appears at bottom-left in the recorded video.
+        //
+        // Derivation (CI origin at bottom-right of the pixel buffer):
+        //   SwiftUI default anchor = top-right: rawX = outputWidth - pipWidth - margin, rawY = margin
+        //   CI X-flip: ciX = outputWidth - rawX - pipWidth = margin - offset.width * scaleX
+        //   CI Y-flip: ciY = outputHeight - rawY - pipHeight
+        //            = outputHeight - margin - pipHeight - offset.height * scaleY
+        //
+        // Result: corner 0 (UI top-right)  → ciX≈margin (CI right),  ciY≈outputHeight-margin-pipH (CI top)  ✓
+        //         corner 3 (UI bottom-left) → ciX≈outputWidth-margin-pipW (CI left), ciY≈margin (CI bottom) ✓
+        let ciX = margin - offset.width  * scaleX
+        let ciY = CGFloat(Self.outputHeight) - margin - pipHeight - offset.height * scaleY
+        let pipRect = CGRect(x: ciX, y: ciY, width: pipWidth, height: pipHeight)
 
         guard let composited = composite(back: back, front: front, pipRect: pipRect) else { return }
         onComposited?(composited, pts)
