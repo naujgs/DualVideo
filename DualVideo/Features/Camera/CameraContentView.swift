@@ -1,6 +1,5 @@
 import SwiftUI
 import AVFoundation
-import UIKit
 
 struct CameraContentView: View {
     let cameraManager: CameraManager
