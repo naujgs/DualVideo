@@ -33,6 +33,8 @@ created: 2026-05-18
 
 Native SwiftUI uses pt (points), not px. All values map directly to Swift `CGFloat` constants.
 
+**Grid note:** This is a native iOS/SwiftUI project on a 4pt grid. The standard token set (4, 8, 16, 24, 32, 48, 64) is extended with 12, 20, and 28 as explicit project tokens — all are multiples of 4 and are grid-aligned. These extensions are required by the existing codebase layout contract and matching the iPhone Camera app proportions.
+
 | Token | Value (pt) | Usage in this phase |
 |-------|-----------|---------------------|
 | xs | 4 | Zoom preset button vertical padding |
@@ -53,7 +55,7 @@ Exceptions:
 
 ## Typography
 
-All text in this phase uses `.system()` with named text styles or explicit sizes. Weights are limited to two choices project-wide.
+All text in this phase uses `.system()` with named text styles or explicit sizes. Weights are limited to two choices project-wide: regular (400) and bold (700).
 
 | Role | Size | Weight | Line Height | Usage |
 |------|------|--------|-------------|-------|
@@ -61,7 +63,7 @@ All text in this phase uses `.system()` with named text styles or explicit sizes
 | Zoom preset label (active) | `.footnote` (~13pt) | bold (700) | n/a (single line) | Active zoom preset — same size, bold weight is the active-state signal |
 | Recording timer | `.body` (~17pt) | bold (700) | n/a (single line) | `RecordingStatusOverlay` elapsed time — existing, unchanged |
 | "Saved to Photos" banner | `.caption` (~12pt) | regular (400) | n/a (single line) | Success capsule — existing, unchanged |
-| Control icons | `.title2` / `.title3` | medium (500) | n/a | SF Symbol icons in TorchToggleButton (`.title2`) and QualitySettingsButton (`.title3`) — existing, unchanged |
+| Control icons | `.title2` / `.title3` | — | n/a | SF Symbol icons in TorchToggleButton (`.title2`) and QualitySettingsButton (`.title3`) — existing, unchanged. Symbol rendering weight is controlled by SF Symbols configuration, not by the text typography contract. |
 
 Active-state rule: the ONLY visual differentiator between active and inactive zoom preset buttons is font weight (bold vs regular) and foreground color (`.primary` vs `.white`). No separate background, no tint layer — this ensures the active signal is visible on both iOS 26 glassEffect and iOS 18–25 ultraThinMaterial. See RESEARCH.md Pitfall 5.
 
