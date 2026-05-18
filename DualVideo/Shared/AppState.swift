@@ -15,6 +15,7 @@ final class AppState {
     var deviceSupported: Bool = false
     var cameraManager: CameraManager = CameraManager()
     var recordingManager: RecordingManager = RecordingManager()
+    var qualitySettings: VideoQualitySettings = VideoQualitySettings.load()
 
     init() {
         // Attach a PiPCompositor to CameraManager so it is ready before session starts

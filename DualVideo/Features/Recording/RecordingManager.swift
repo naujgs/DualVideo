@@ -110,7 +110,7 @@ final class RecordingManager: NSObject, @unchecked Sendable {
     /// Start recording. Transitions phase to .recording immediately (D-04: no countdown).
     /// Must be called from the main thread.
     @MainActor
-    func startRecording() {
+    func startRecording(settings: VideoQualitySettings = VideoQualitySettings()) {
         guard case .idle = phase else {
             logger.warning("RecordingManager.startRecording() called in non-idle phase")
             return
@@ -120,7 +120,12 @@ final class RecordingManager: NSObject, @unchecked Sendable {
         phase = .recording(startedAt: startDate)
         elapsedSeconds = 0
 
-        recorder.startRecording()
+        // Update compositor dimensions BEFORE recorder creates the pixel buffer pool.
+        // Pitfall 3: pool is sized to recorder's declared dimensions; compositor must match.
+        compositor?.outputWidth  = settings.resolution.width
+        compositor?.outputHeight = settings.resolution.height
+
+        recorder.startRecording(settings: settings)
         // Bridge the pixel buffer pool from the adaptor to the compositor (WR-02).
         // recorder.startRecording() creates the adaptor synchronously, so the pool is available here.
         compositor?.pixelBufferPool = recorder.adaptor?.pixelBufferPool

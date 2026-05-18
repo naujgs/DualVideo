@@ -59,8 +59,8 @@ final class PiPCompositorTests: XCTestCase {
         guard let result = compositor.composite(back: back, front: front, pipRect: pipRect) else {
             XCTFail("composite() returned nil"); return
         }
-        XCTAssertEqual(CVPixelBufferGetWidth(result), PiPCompositor.outputWidth)
-        XCTAssertEqual(CVPixelBufferGetHeight(result), PiPCompositor.outputHeight)
+        XCTAssertEqual(CVPixelBufferGetWidth(result), compositor.outputWidth)
+        XCTAssertEqual(CVPixelBufferGetHeight(result), compositor.outputHeight)
     }
 
     func testPiPOffsetSnapshot() {
