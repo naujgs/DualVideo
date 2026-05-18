@@ -57,6 +57,22 @@ Plans:
 - [x] 03-02-PLAN.md — PiP corner snapping with spring animation, UserDefaults corner persistence, onAppear restore (OUT-03)
 - [x] 03-03-PLAN.md — Torch toggle + auto-off on interrupt, zoom label HUD, interruptionEnded recovery, orientation lock device verification (OUT-04)
 
+### Phase 4: Video Quality and Export Options
+**Goal**: Give users control over video quality, resolution, and bitrate, and add video trimming before saving to Photos.
+**Depends on**: Phase 3
+**Requirements**: VQ-01, VQ-02, VQ-03, VQ-04
+**Success Criteria** (what must be TRUE):
+  1. User can select output resolution (720p / 1080p) and bitrate (Low / Medium / High) before recording.
+  2. Video trimming UI lets the user define in/out points on a recorded clip before saving.
+  3. Settings persist across app launches via UserDefaults.
+**Plans**: 4 plans
+
+Plans:
+- [ ] 04-01-PLAN.md — VideoQualitySettings struct + VideoTrimManager actor (TDD), Wave 0 test files (VQ-01, VQ-02, VQ-03, VQ-04)
+- [ ] 04-02-PLAN.md — Pipeline wiring: MovieRecorder + PiPCompositor + CameraManager + RecordingManager + AppState (VQ-01, VQ-02, VQ-04)
+- [ ] 04-03-PLAN.md — Quality settings UI: QualitySettingsButton + QualitySettingsSheet, pendingTrimURL trigger in CameraContentView (VQ-01, VQ-02, VQ-04)
+- [ ] 04-04-PLAN.md — Trim UI: TrimRangeBar + TrimSheet, replace Plan 03 placeholder, human-verify checkpoint (VQ-03)
+
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |
@@ -64,3 +80,4 @@ Plans:
 | 1. Foundation - Permissions, Session, Live Preview | 3/3 | Complete | 2026-05-17 |
 | 2. Recording Pipeline - Compositor, Writer, Audio | 3/3 | Complete | 2026-05-17 |
 | 3. Save, Polish, and Edge Cases | 3/3 | Complete   | 2026-05-17 |
+| 4. Video Quality and Export Options | 0/4 | Planning | — |
