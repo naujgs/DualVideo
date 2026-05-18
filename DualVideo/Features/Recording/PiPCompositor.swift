@@ -28,8 +28,10 @@ final class PiPCompositor: NSObject {
     private let ciContext: CIContext
 
     // MARK: - Output dimensions (portrait: frames arrive pre-rotated 90° by videoRotationAngle)
-    static let outputWidth = 1080
-    static let outputHeight = 1920
+    // Instance vars — set by RecordingManager before each recording via compositor.outputWidth/Height.
+    // Default to 1080p to preserve pre-recording preview behavior.
+    nonisolated(unsafe) var outputWidth:  Int = 1080
+    nonisolated(unsafe) var outputHeight: Int = 1920
 
     // MARK: - PiP offset snapshot (thread-safe: written on main, read on dataOutputQueue)
     /// Snapshot of PiPOverlayState.offset. Updated from the main thread via updatePiPOffset(_:).
@@ -158,14 +160,14 @@ final class PiPCompositor: NSObject {
         var buf: CVPixelBuffer?
         let attrs: [String: Any] = [
             kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
-            kCVPixelBufferWidthKey as String: Self.outputWidth,
-            kCVPixelBufferHeightKey as String: Self.outputHeight,
+            kCVPixelBufferWidthKey as String: self.outputWidth,
+            kCVPixelBufferHeightKey as String: self.outputHeight,
             kCVPixelBufferCGImageCompatibilityKey as String: true,
             kCVPixelBufferCGBitmapContextCompatibilityKey as String: true
         ]
         let status = CVPixelBufferCreate(
             kCFAllocatorDefault,
-            Self.outputWidth, Self.outputHeight,
+            self.outputWidth, self.outputHeight,
             kCVPixelFormatType_32BGRA,
             attrs as CFDictionary,
             &buf
@@ -205,7 +207,7 @@ extension PiPCompositor: AVCaptureVideoDataOutputSampleBufferDelegate {
 
         // Compute pipRect from offset snapshot (read pipOffsetSnapshot — safe on dataOutputQueue)
         let offset = pipOffsetSnapshot
-        let pipWidth: CGFloat = CGFloat(Self.outputWidth) * 0.28
+        let pipWidth: CGFloat = CGFloat(self.outputWidth) * 0.28
         let pipHeight: CGFloat = pipWidth * (4.0 / 3.0)
         // Use cached screen metrics — UIScreen.main is @MainActor and must not be read here (CR-01)
         let screenWidth = screenWidthSnapshot
@@ -213,8 +215,8 @@ extension PiPCompositor: AVCaptureVideoDataOutputSampleBufferDelegate {
         // Separate scale factors for X and Y: output (1080×1920) and screen (e.g. 393×852) have
         // different aspect ratios. Using a single scaleToOutput = outputWidth/screenWidth for the
         // Y axis over-scales vertical offsets, pushing the PiP out of bounds for bottom corners.
-        let scaleX = CGFloat(Self.outputWidth) / screenWidth
-        let scaleY = CGFloat(Self.outputHeight) / screenHeight
+        let scaleX = CGFloat(self.outputWidth) / screenWidth
+        let scaleY = CGFloat(self.outputHeight) / screenHeight
         let margin: CGFloat = PiPOverlayState.edgeMargin * scaleX
 
         // Coordinate system correction: CVPixelBuffers delivered by AVCaptureVideoDataOutput with
@@ -230,8 +232,8 @@ extension PiPCompositor: AVCaptureVideoDataOutputSampleBufferDelegate {
         // X anchor: right side of output = outputWidth - pipWidth - margin (standard, no flip)
         // Y anchor: CI bottom = outputHeight - margin - pipHeight (flipped from SwiftUI top)
         // Moving down in SwiftUI (positive offset.height) → decreasing CI Y → ciY -= offset.height*scaleY
-        let ciX = CGFloat(Self.outputWidth) - pipWidth - margin + offset.width  * scaleX
-        let ciY = CGFloat(Self.outputHeight) - margin - pipHeight - offset.height * scaleY
+        let ciX = CGFloat(self.outputWidth) - pipWidth - margin + offset.width  * scaleX
+        let ciY = CGFloat(self.outputHeight) - margin - pipHeight - offset.height * scaleY
         let pipRect = CGRect(x: ciX, y: ciY, width: pipWidth, height: pipHeight)
 
         guard let composited = composite(back: back, front: front, pipRect: pipRect) else { return }

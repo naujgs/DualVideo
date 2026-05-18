@@ -3,7 +3,7 @@ import os.log
 
 private let logger = Logger(subsystem: "com.naujgs.DualVideo", category: "MovieRecorder")
 
-/// AVAssetWriter state machine for producing a valid 1080p H.264/AAC .mov file.
+/// AVAssetWriter state machine for producing a settings-driven H.264/AAC .mov file.
 ///
 /// Threading model: all methods called from dataOutputQueue (except startRecording/stopRecording
 /// which may be called from main via RecordingManager). Internal state mutations are serialized
@@ -39,7 +39,7 @@ final class MovieRecorder {
 
     // MARK: - Public API
 
-    func startRecording() {
+    func startRecording(settings: VideoQualitySettings = VideoQualitySettings()) {
         // Guard: only start from .idle
         guard state == .idle else {
             logger.warning("MovieRecorder.startRecording() called in non-idle state: \(String(describing: self.state))")
@@ -55,13 +55,13 @@ final class MovieRecorder {
         do {
             let w = try AVAssetWriter(url: url, fileType: .mov)
 
-            // Video input: H.264 1080p with hardware-acceleration friendly settings
+            // Video input: H.264 at settings-specified resolution and bitrate
             let videoSettings: [String: Any] = [
                 AVVideoCodecKey: AVVideoCodecType.h264,
-                AVVideoWidthKey: 1080,
-                AVVideoHeightKey: 1920,
+                AVVideoWidthKey:  settings.resolution.width,
+                AVVideoHeightKey: settings.resolution.height,
                 AVVideoCompressionPropertiesKey: [
-                    AVVideoAverageBitRateKey: 10_000_000,  // 10 Mbps H.264 for 1080p portrait
+                    AVVideoAverageBitRateKey:      settings.bitrate.bitsPerSecond,
                     AVVideoMaxKeyFrameIntervalKey: 30       // keyframe every 1 second at 30fps
                 ]
             ]
@@ -74,8 +74,8 @@ final class MovieRecorder {
                 assetWriterInput: vInput,
                 sourcePixelBufferAttributes: [
                     kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
-                    kCVPixelBufferWidthKey as String: 1080,
-                    kCVPixelBufferHeightKey as String: 1920
+                    kCVPixelBufferWidthKey as String:           settings.resolution.width,
+                    kCVPixelBufferHeightKey as String:          settings.resolution.height
                 ]
             )
 
