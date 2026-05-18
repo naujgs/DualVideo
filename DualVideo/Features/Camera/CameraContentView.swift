@@ -94,33 +94,47 @@ struct CameraContentView: View {
                     }
                 }
 
-                // Torch + zoom label — left column, unified camera control group
+                // Bottom-leading: Torch toggle (D-03 — symmetric counterpart to quality button)
                 VStack {
                     Spacer()
                     HStack {
-                        VStack(spacing: 8) {
-                            QualitySettingsButton(
-                                isRecording: {
-                                    if case .recording = recordingManager.phase { return true }
-                                    return false
-                                }(),
-                                onTap: { showQualitySettings = true }
-                            )
-                            TorchToggleButton(
-                                isTorchOn: cameraManager.isTorchOn,
-                                onTap: { cameraManager.toggleTorch() }
-                            )
-                            ZoomLabelView(zoomFactor: cameraManager.backZoomFactor)
-                        }
+                        TorchToggleButton(
+                            isTorchOn: cameraManager.isTorchOn,
+                            onTap: { cameraManager.toggleTorch() }
+                        )
                         .padding(.leading, 20)
-                        .padding(.bottom, geo.safeAreaInsets.bottom + 24)
+                        .padding(.bottom, geo.safeAreaInsets.bottom + 28)
                         Spacer()
                     }
                 }
 
-                // Record/Stop button + save banner: bottom-center stack
-                VStack(spacing: 0) {
+                // Bottom-trailing: Quality settings button (LAYOUT-02)
+                VStack {
                     Spacer()
+                    HStack {
+                        Spacer()
+                        QualitySettingsButton(
+                            isRecording: {
+                                if case .recording = recordingManager.phase { return true }
+                                return false
+                            }(),
+                            onTap: { showQualitySettings = true }
+                        )
+                        .padding(.trailing, 24)
+                        .padding(.bottom, geo.safeAreaInsets.bottom + 28)
+                    }
+                }
+
+                // Bottom-center: Zoom presets above record button (LAYOUT-01)
+                VStack(spacing: 12) {
+                    Spacer()
+                    ZoomPresetView(
+                        currentZoom: cameraManager.backZoomFactor,
+                        onPresetSelected: { factor in
+                            cameraManager.setZoom(factor)
+                            activeZoomBase = factor  // CRITICAL: sync pinch baseline (RESEARCH.md Pitfall 1)
+                        }
+                    )
                     // Transient success banner: appears 2.5s after successful save (OUT-02)
                     if case .success = recordingManager.saveResult {
                         Text("Saved to Photos")
@@ -128,8 +142,7 @@ struct CameraContentView: View {
                             .foregroundStyle(.white)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 6)
-                            .background(.black.opacity(0.6))
-                            .clipShape(Capsule())
+                            .cameraGlassBackground(in: Capsule())
                             .padding(.bottom, 8)
                             .transition(.opacity)
                             .onAppear {
@@ -222,7 +235,7 @@ struct CameraContentView: View {
                 }
             }
         )
-        // Quality settings sheet — opened from QualitySettingsButton in left column
+        // Quality settings sheet — glass presentation background (D-10, RESEARCH.md Pitfall 4)
         .sheet(isPresented: $showQualitySettings) {
             QualitySettingsSheet(
                 settings: Binding(
@@ -236,6 +249,7 @@ struct CameraContentView: View {
                     cameraManager.applyFrameRate(appState.qualitySettings.frameRate)
                 }
             )
+            .presentationBackground(.ultraThinMaterial)
         }
     }
 }
