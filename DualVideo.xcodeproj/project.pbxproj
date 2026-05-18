@@ -45,6 +45,8 @@
 		1A000083 /* VideoTrimManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000083 /* VideoTrimManagerTests.swift */; };
 		1A000090 /* QualitySettingsButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000090 /* QualitySettingsButton.swift */; };
 		1A000091 /* QualitySettingsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000091 /* QualitySettingsSheet.swift */; };
+		1A000092 /* TrimRangeBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000092 /* TrimRangeBar.swift */; };
+		1A000093 /* TrimSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000093 /* TrimSheet.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -97,6 +99,8 @@
 		1B000083 /* VideoTrimManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoTrimManagerTests.swift; sourceTree = "<group>"; };
 		1B000090 /* QualitySettingsButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QualitySettingsButton.swift; sourceTree = "<group>"; };
 		1B000091 /* QualitySettingsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QualitySettingsSheet.swift; sourceTree = "<group>"; };
+		1B000092 /* TrimRangeBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrimRangeBar.swift; sourceTree = "<group>"; };
+		1B000093 /* TrimSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrimSheet.swift; sourceTree = "<group>"; };
 		1C000001 /* DualVideo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DualVideo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1C000002 /* DualVideoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DualVideoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -192,6 +196,8 @@
 				1B000061 /* ZoomLabelView.swift */,
 				1B000090 /* QualitySettingsButton.swift */,
 				1B000091 /* QualitySettingsSheet.swift */,
+				1B000092 /* TrimRangeBar.swift */,
+				1B000093 /* TrimSheet.swift */,
 			);
 			path = UI;
 			sourceTree = "<group>";
@@ -377,6 +383,8 @@
 				1A000081 /* VideoTrimManager.swift in Sources */,
 				1A000090 /* QualitySettingsButton.swift in Sources */,
 				1A000091 /* QualitySettingsSheet.swift in Sources */,
+				1A000092 /* TrimRangeBar.swift in Sources */,
+				1A000093 /* TrimSheet.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
