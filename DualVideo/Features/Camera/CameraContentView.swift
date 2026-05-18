@@ -232,20 +232,14 @@ struct CameraContentView: View {
                 onDismiss: { appState.qualitySettings.save() }
             )
         }
-        // TrimSheet trigger — Plan 04 will replace Color.clear placeholder with TrimSheet view.
-        // Placeholder ensures no recording is lost before Plan 04 ships: auto-saves full clip.
+        // TrimSheet — post-recording trim UI (Plan 04).
+        // Presented when pendingTrimURL is set after stopRecording() completes.
         .sheet(isPresented: Binding(
             get: { recordingManager.pendingTrimURL != nil },
             set: { if !$0 { recordingManager.pendingTrimURL = nil } }
         )) {
             if let url = recordingManager.pendingTrimURL {
-                // TrimSheet — implemented in Plan 04
-                // Placeholder: auto-save full clip until Plan 04 provides TrimSheet
-                Color.clear
-                    .onAppear {
-                        recordingManager.pendingTrimURL = nil
-                        recordingManager.saveRecording(url: url)
-                    }
+                TrimSheet(sourceURL: url, recordingManager: recordingManager)
             }
         }
     }
