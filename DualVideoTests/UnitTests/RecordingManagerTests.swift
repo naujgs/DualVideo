@@ -39,4 +39,22 @@ final class RecordingManagerTests: XCTestCase {
         manager.injectMockStopURL(expectURL)  // test-only hook: bypasses AVAssetWriter
         XCTAssertEqual(manager.pendingFileURL, expectURL)
     }
+
+    // MARK: - Settings-driven tests (Plan 04-02, Task 2)
+
+    /// After startRecording(settings:) with hd720p, compositor dimensions must be 720×1280.
+    /// Verifies compositor.outputWidth/Height are updated BEFORE recorder.startRecording(settings:).
+    func testStartRecordingWithSettingsUpdatesCompositorDimensions() {
+        let manager = RecordingManager()
+        let compositor = PiPCompositor()
+        manager.wireCompositor(compositor)
+
+        let settings = VideoQualitySettings(resolution: .hd720p, bitrate: .low)
+        manager.startRecording(settings: settings)
+
+        XCTAssertEqual(compositor.outputWidth, 720,
+                       "compositor.outputWidth must be 720 after startRecording with hd720p")
+        XCTAssertEqual(compositor.outputHeight, 1280,
+                       "compositor.outputHeight must be 1280 after startRecording with hd720p")
+    }
 }
