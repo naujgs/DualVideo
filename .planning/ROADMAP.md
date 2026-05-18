@@ -68,7 +68,7 @@ Plans:
 **Plans**: 4 plans
 
 Plans:
-- [ ] 04-01-PLAN.md — VideoQualitySettings struct + VideoTrimManager actor (TDD), Wave 0 test files (VQ-01, VQ-02, VQ-03, VQ-04)
+- [x] 04-01-PLAN.md — VideoQualitySettings struct + VideoTrimManager actor (TDD), Wave 0 test files (VQ-01, VQ-02, VQ-03, VQ-04)
 - [ ] 04-02-PLAN.md — Pipeline wiring: MovieRecorder + PiPCompositor + CameraManager + RecordingManager + AppState (VQ-01, VQ-02, VQ-04)
 - [ ] 04-03-PLAN.md — Quality settings UI: QualitySettingsButton + QualitySettingsSheet, pendingTrimURL trigger in CameraContentView (VQ-01, VQ-02, VQ-04)
 - [ ] 04-04-PLAN.md — Trim UI: TrimRangeBar + TrimSheet, replace Plan 03 placeholder, human-verify checkpoint (VQ-03)
