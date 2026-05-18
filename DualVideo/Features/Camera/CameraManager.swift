@@ -149,6 +149,29 @@ final class CameraManager: @unchecked Sendable {
         }
     }
 
+    /// Apply a frame rate to both cameras by setting activeVideoMinFrameDuration and
+    /// activeVideoMaxFrameDuration on each capture device.
+    /// Must be called when not actively recording (format/rate changes during recording are unsupported).
+    /// Dispatches to sessionQueue internally.
+    func applyFrameRate(_ fps: FrameRatePreset) {
+        sessionQueue.async { [weak self] in
+            guard let self else { return }
+            let duration = CMTime(value: 1, timescale: CMTimeScale(fps.rawValue))
+            // Back camera
+            if let back = self.backDevice {
+                self.setFrameDuration(duration, on: back)
+            }
+            // Front camera (accessed via session inputs)
+            for input in self.session.inputs {
+                if let deviceInput = input as? AVCaptureDeviceInput,
+                   deviceInput.device.position == .front {
+                    self.setFrameDuration(duration, on: deviceInput.device)
+                }
+            }
+            logger.info("CameraManager: applyFrameRate \(fps.rawValue) fps applied to both cameras")
+        }
+    }
+
     /// Sync isSessionRunning with the actual session state. Called after interruptionEnded.
     func syncSessionRunningState() {
         sessionQueue.async { [weak self] in
@@ -159,6 +182,20 @@ final class CameraManager: @unchecked Sendable {
     }
 
     // MARK: - Private helpers
+
+    /// Sets activeVideoMinFrameDuration and activeVideoMaxFrameDuration on a device.
+    /// Must be called on sessionQueue.
+    private func setFrameDuration(_ duration: CMTime, on device: AVCaptureDevice) {
+        do {
+            try device.lockForConfiguration()
+            device.activeVideoMinFrameDuration = duration
+            device.activeVideoMaxFrameDuration = duration
+            device.unlockForConfiguration()
+            logger.info("CameraManager: set frame duration \(duration.timescale) fps on \(device.localizedName)")
+        } catch {
+            logger.error("CameraManager: frame duration lock failed for \(device.localizedName): \(error)")
+        }
+    }
 
     /// Selects the AVCaptureDevice activeFormat matching targetLandscapeWidth.
     /// Filters for isMultiCamSupported to avoid formats invalid for AVCaptureMultiCamSession.

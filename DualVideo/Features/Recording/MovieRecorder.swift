@@ -55,14 +55,15 @@ final class MovieRecorder {
         do {
             let w = try AVAssetWriter(url: url, fileType: .mov)
 
-            // Video input: H.264 at settings-specified resolution and bitrate
+            // Video input: H.264 at settings-specified resolution.
+            // Keyframe interval tracks frame rate so there is one keyframe per second.
+            let fps = settings.frameRate.rawValue
             let videoSettings: [String: Any] = [
                 AVVideoCodecKey: AVVideoCodecType.h264,
                 AVVideoWidthKey:  settings.resolution.width,
                 AVVideoHeightKey: settings.resolution.height,
                 AVVideoCompressionPropertiesKey: [
-                    AVVideoAverageBitRateKey:      settings.bitrate.bitsPerSecond,
-                    AVVideoMaxKeyFrameIntervalKey: 30       // keyframe every 1 second at 30fps
+                    AVVideoMaxKeyFrameIntervalKey: fps     // keyframe every 1 second
                 ]
             ]
             let vInput = AVAssetWriterInput(mediaType: .video, outputSettings: videoSettings)

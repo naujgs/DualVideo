@@ -229,7 +229,12 @@ struct CameraContentView: View {
                     get: { appState.qualitySettings },
                     set: { appState.qualitySettings = $0 }
                 ),
-                onDismiss: { appState.qualitySettings.save() }
+                onDismiss: {
+                    appState.qualitySettings.save()
+                    // Apply updated resolution and frame rate to both cameras
+                    cameraManager.applyResolutionFormat(resolution: appState.qualitySettings.resolution)
+                    cameraManager.applyFrameRate(appState.qualitySettings.frameRate)
+                }
             )
         }
     }

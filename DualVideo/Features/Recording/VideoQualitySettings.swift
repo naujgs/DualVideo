@@ -36,45 +36,51 @@ enum OutputResolution: String, Codable, CaseIterable, Sendable {
     }
 }
 
-/// H.264 bitrate tiers for the composited PiP recording.
-/// Values calibrated against native iPhone camera recordings (D-03, D-04, D-05, D-06).
-enum BitratePreset: String, Codable, CaseIterable, Sendable {
-    case low    = "Low"
-    case medium = "Medium"
-    case high   = "High"
+/// Frame rate options for the composited PiP recording.
+/// Applied to both cameras via AVCaptureDevice frame duration settings.
+enum FrameRatePreset: Int, CaseIterable, Codable, Sendable {
+    case fps30  = 30
+    case fps60  = 60
+    case fps120 = 120
 
-    /// Video bitrate in bits per second.
-    /// D-04: high   = 15 Mbps — matches front-camera native capture (front-camera.MOV ~15.4 Mbps)
-    /// D-05: medium = 10 Mbps — matches existing hardcoded MovieRecorder value (proven on A12 XR)
-    /// D-06: low    =  5 Mbps — half of medium; meaningful storage savings
-    var bitsPerSecond: Int {
+    var displayName: String {
         switch self {
-        case .low:    return  5_000_000  //  5 Mbps  ~37 MB/min
-        case .medium: return 10_000_000  // 10 Mbps  ~75 MB/min
-        case .high:   return 15_000_000  // 15 Mbps ~112 MB/min
+        case .fps30:  return "30 FPS"
+        case .fps60:  return "60 FPS"
+        case .fps120: return "120 FPS"
         }
     }
 }
 
 /// User-configurable output quality settings. Shared instance lives on AppState.
-/// Persisted via JSONEncoder/Codable to UserDefaults.
+/// Persisted via UserDefaults (individual keys per property).
 /// D-01: default resolution = .hd1080p (matches existing hardcoded output)
-/// D-02: default bitrate    = .high    (matches existing hardcoded 10 Mbps — High is the tier name)
+/// D-02: default frameRate  = .fps30
 struct VideoQualitySettings: Codable, Sendable {
     var resolution: OutputResolution = .hd1080p
-    var bitrate: BitratePreset       = .high
+    var frameRate: FrameRatePreset   = .fps30
 
-    static let defaultsKey = "com.naujgs.DualVideo.videoQualitySettings"
+    static let defaultsKey          = "com.naujgs.DualVideo.videoQualitySettings"
+    static let frameRateDefaultsKey = "qualitySettings.frameRate"
 
     static func load() -> VideoQualitySettings {
-        guard let data = UserDefaults.standard.data(forKey: defaultsKey),
-              let decoded = try? JSONDecoder().decode(VideoQualitySettings.self, from: data)
-        else { return VideoQualitySettings() }
-        return decoded
+        var settings = VideoQualitySettings()
+        // Load resolution from legacy JSON blob if present
+        if let data = UserDefaults.standard.data(forKey: defaultsKey),
+           let decoded = try? JSONDecoder().decode(VideoQualitySettings.self, from: data) {
+            settings = decoded
+        }
+        // Load frameRate from its own key (takes precedence over any value in legacy blob)
+        if let rawValue = UserDefaults.standard.object(forKey: frameRateDefaultsKey) as? Int,
+           let preset = FrameRatePreset(rawValue: rawValue) {
+            settings.frameRate = preset
+        }
+        return settings
     }
 
     func save() {
         guard let data = try? JSONEncoder().encode(self) else { return }
         UserDefaults.standard.set(data, forKey: VideoQualitySettings.defaultsKey)
+        UserDefaults.standard.set(frameRate.rawValue, forKey: VideoQualitySettings.frameRateDefaultsKey)
     }
 }

@@ -24,21 +24,33 @@ struct OutputResolutionTests {
     }
 }
 
-// MARK: - BitratePreset Tests
+// MARK: - FrameRatePreset Tests
 
-@Suite("BitratePreset")
-struct BitratePresetTests {
+@Suite("FrameRatePreset")
+struct FrameRatePresetTests {
 
-    @Test func lowBitrate() {
-        #expect(BitratePreset.low.bitsPerSecond == 5_000_000)
+    @Test func fps30RawValue() {
+        #expect(FrameRatePreset.fps30.rawValue == 30)
     }
 
-    @Test func mediumBitrate() {
-        #expect(BitratePreset.medium.bitsPerSecond == 10_000_000)
+    @Test func fps60RawValue() {
+        #expect(FrameRatePreset.fps60.rawValue == 60)
     }
 
-    @Test func highBitrate() {
-        #expect(BitratePreset.high.bitsPerSecond == 15_000_000)
+    @Test func fps120RawValue() {
+        #expect(FrameRatePreset.fps120.rawValue == 120)
+    }
+
+    @Test func fps30DisplayName() {
+        #expect(FrameRatePreset.fps30.displayName == "30 FPS")
+    }
+
+    @Test func fps60DisplayName() {
+        #expect(FrameRatePreset.fps60.displayName == "60 FPS")
+    }
+
+    @Test func fps120DisplayName() {
+        #expect(FrameRatePreset.fps120.displayName == "120 FPS")
     }
 }
 
@@ -51,6 +63,7 @@ struct VideoQualitySettingsTests {
     /// Clean slate before and after each test that touches UserDefaults.
     private func cleanDefaults() {
         UserDefaults.standard.removeObject(forKey: VideoQualitySettings.defaultsKey)
+        UserDefaults.standard.removeObject(forKey: VideoQualitySettings.frameRateDefaultsKey)
     }
 
     @Test func defaultResolutionIs1080p() {
@@ -58,9 +71,9 @@ struct VideoQualitySettingsTests {
         #expect(settings.resolution == .hd1080p)
     }
 
-    @Test func defaultBitrateIsHigh() {
+    @Test func defaultFrameRateIs30fps() {
         let settings = VideoQualitySettings()
-        #expect(settings.bitrate == .high)
+        #expect(settings.frameRate == .fps30)
     }
 
     @Test func saveAndLoadRoundTrip() {
@@ -69,14 +82,12 @@ struct VideoQualitySettingsTests {
 
         var settings = VideoQualitySettings()
         settings.resolution = .hd720p
-        settings.bitrate = .low
-
-        let data = try! JSONEncoder().encode(settings)
-        UserDefaults.standard.set(data, forKey: VideoQualitySettings.defaultsKey)
+        settings.frameRate = .fps60
+        settings.save()
 
         let loaded = VideoQualitySettings.load()
         #expect(loaded.resolution == .hd720p)
-        #expect(loaded.bitrate == .low)
+        #expect(loaded.frameRate == .fps60)
     }
 
     @Test func loadWithNoStoredDataReturnsDefault() {
@@ -85,7 +96,7 @@ struct VideoQualitySettingsTests {
 
         let loaded = VideoQualitySettings.load()
         #expect(loaded.resolution == .hd1080p)
-        #expect(loaded.bitrate == .high)
+        #expect(loaded.frameRate == .fps30)
     }
 
     @Test func saveAndLoadViaConvenienceMethods() {
@@ -94,11 +105,24 @@ struct VideoQualitySettingsTests {
 
         var settings = VideoQualitySettings()
         settings.resolution = .hd720p
-        settings.bitrate = .medium
+        settings.frameRate = .fps120
         settings.save()
 
         let loaded = VideoQualitySettings.load()
         #expect(loaded.resolution == .hd720p)
-        #expect(loaded.bitrate == .medium)
+        #expect(loaded.frameRate == .fps120)
+    }
+
+    @Test func frameRatePersistedWithOwnKey() {
+        cleanDefaults()
+        defer { cleanDefaults() }
+
+        var settings = VideoQualitySettings()
+        settings.frameRate = .fps60
+        settings.save()
+
+        // Verify the dedicated key was written
+        let rawValue = UserDefaults.standard.integer(forKey: VideoQualitySettings.frameRateDefaultsKey)
+        #expect(rawValue == 60)
     }
 }
