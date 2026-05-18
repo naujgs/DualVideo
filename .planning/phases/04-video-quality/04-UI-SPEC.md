@@ -36,7 +36,7 @@ Declared values — multiples of 4 only, matching existing app conventions extra
 
 | Token | Value | Usage |
 |-------|-------|-------|
-| xs | 4pt | Inline gaps (e.g. `HStack(spacing: 6)` in status overlay — nearest standard step) |
+| xs | 4pt | Inline gaps (nearest standard step) |
 | sm | 8pt | Label horizontal padding (zoom label `.padding(.horizontal, 8)`) |
 | md | 16pt | Button inner padding (torch button `.padding(16)`) |
 | lg | 24pt | Bottom safe-area offset (`geo.safeAreaInsets.bottom + 24`) |
@@ -45,10 +45,14 @@ Declared values — multiples of 4 only, matching existing app conventions extra
 | 3xl | 64pt | Not yet used — reserved for future layout gaps |
 
 Exceptions:
-- Touch target minimum: 44pt × 44pt (Apple HIG requirement). The torch button achieves this via 16pt padding around a `.title2` icon. Quality settings gear button must match the same 44pt minimum.
-- RecordButton outer ring: 72pt — retained as-is, not changed in this phase.
-- PiP corner radius: 12pt — retained.
-- Control group vertical spacing: 8pt (`VStack(spacing: 8)` in torch + zoom column) — retain for quality indicator badge if added to that column.
+
+| Exception | Value | Rationale |
+|-----------|-------|-----------|
+| Touch target minimum | 44pt × 44pt | Apple HIG requirement. Torch button achieves this via 16pt padding around a `.title2` icon. Quality settings button must match. |
+| RecordButton outer ring | 72pt | Retained as-is — not changed in Phase 4. |
+| PiP corner radius | 12pt | Retained — not changed in Phase 4. |
+| Control group vertical spacing | 8pt | `VStack(spacing: 8)` in torch + zoom column — retain for quality indicator badge if added to that column. |
+| RecordingStatusOverlay HStack spacing | 6pt | Legacy value from Phase 1 (`HStack(spacing: 6)` in `RecordingStatusOverlay.swift`). Out of Phase 4 scope — deferred. Not a new introduction. |
 
 ---
 
@@ -56,21 +60,30 @@ Exceptions:
 
 All fonts are SwiftUI system fonts via `.font(.system(...))`. No custom fonts are used in the app. (Source: all existing UI files.)
 
+**Permitted sizes: exactly 4 — 12pt, 13pt, 17pt, 22pt.**
+**Permitted weights: exactly 2 — regular (400) and semibold (600).**
+
 | Role | SwiftUI Spec | Approx Size | Weight | Line Height |
 |------|-------------|-------------|--------|-------------|
 | Body | `.system(.body)` | 17pt | regular (400) | 1.5 (system default) |
 | Label / Caption | `.system(.caption)` | 12pt | regular (400) | 1.4 |
-| Monospaced timer | `.system(.body, design: .monospaced).bold()` | 17pt | bold (700) | 1.5 |
+| Monospaced timer | `.system(.body, design: .monospaced, weight: .semibold)` | 17pt | semibold (600) | 1.5 |
 | Footnote / HUD badge | `.system(.footnote, design: .monospaced, weight: .semibold)` | 13pt | semibold (600) | 1.3 |
-| Control icon | `.system(.title2, design: .default, weight: .medium)` | 22pt | medium (500) | n/a (icon only) |
+| Control icon | `.system(.title2, design: .default, weight: .semibold)` | 22pt | semibold (600) | n/a (icon only) |
 
 **Phase 4 additions:**
-- Settings sheet section header: `.system(.subheadline, weight: .semibold)` — 15pt semibold. Matches iOS native sheet header conventions.
-- Picker segment label: `.system(.body)` — 17pt regular. SwiftUI `Picker(.pickerStyle(.segmented))` renders its own label font; do not override.
-- Trim time label (in/out point display): `.system(.footnote, design: .monospaced)` — 13pt regular. Consistent with ZoomLabelView pattern.
-- File size hint (below bitrate picker): `.system(.caption)` — 12pt, `.secondary` foreground color. Informational only.
 
-Maximum weights used in the app: regular (400) + bold/semibold for emphasis. Phase 4 adds no new weights — subheadline at semibold is already within the semibold tier used by ZoomLabelView.
+| Role | SwiftUI Spec | Approx Size | Weight | Notes |
+|------|-------------|-------------|--------|-------|
+| Settings sheet section header | `.system(.footnote, weight: .semibold)` | 13pt | semibold (600) | "Resolution" and "Quality" labels above pickers. Uses `.footnote` not `.subheadline` — keeps type scale at 4 sizes max. |
+| Picker segment label | `.system(.body)` | 17pt | regular (400) | SwiftUI `Picker(.pickerStyle(.segmented))` renders its own label font; do not override. |
+| Trim time label (in/out point) | `.system(.footnote, design: .monospaced)` | 13pt | regular (400) | Consistent with ZoomLabelView pattern. |
+| File size hint | `.system(.caption)` | 12pt | regular (400) | `.secondary` foreground. Informational only. |
+
+**Weight rules — no exceptions:**
+- `.bold()` is NOT used anywhere in Phase 4. The monospaced elapsed timer previously used `.bold()` — this is corrected to `.semibold` weight.
+- `.medium` weight is NOT used anywhere in Phase 4. The control icon (TorchToggleButton, QualitySettingsButton) previously declared `.medium` — this is corrected to `.semibold`.
+- All emphasis is semibold (600). No medium (500). No bold (700).
 
 ---
 
@@ -111,10 +124,11 @@ New components introduced in Phase 4, with visual contract:
 Entry point on the main camera UI to open quality settings.
 
 - Shape: `Circle()`, 44pt × 44pt minimum touch target
-- Icon: SF Symbol `gear` or `slider.horizontal.3`, `.system(.title3, weight: .medium)`
+- Icon: SF Symbol `gear` or `slider.horizontal.3`, `.system(.title3, weight: .semibold)`
 - Background: `Color.black.opacity(0.4)`, same as `TorchToggleButton`
 - Foreground: `Color.white`
 - Placement: Left control column, above or below `TorchToggleButton`, within `VStack(spacing: 8)`
+- **Icon-only — intentional:** No text label on the main camera UI. Camera UI is density-constrained; a text label would crowd the control column. Accessibility is provided via `accessibilityLabel` only. The RecordButton is the primary focal point — all other controls are visually subordinate. This icon-only treatment is consistent with `TorchToggleButton`.
 - Disabled during recording: `true` — resolution cannot change mid-recording (per RESEARCH.md A1). Opacity 0.5 when disabled (matches `RecordButton` disabled state).
 - Accessibility label: `"Video quality settings"`
 
@@ -125,7 +139,7 @@ Bottom sheet for resolution and bitrate selection.
 - Presentation: `.sheet(isPresented:)` with `.presentationDetents([.height(240)])` and `.presentationDragIndicator(.visible)`
 - Layout: `VStack(spacing: 24)` containing:
   1. Sheet handle (system drag indicator)
-  2. Section header: "Resolution" — `.system(.subheadline, weight: .semibold)`, `.secondary` foreground
+  2. Section header: "Resolution" — `.system(.footnote, weight: .semibold)`, `.secondary` foreground
   3. `Picker("Resolution", selection:)` with `.pickerStyle(.segmented)` — options: "720p", "1080p"
   4. Section header: "Quality" — same style as Resolution header
   5. `Picker("Quality", selection:)` with `.pickerStyle(.segmented)` — options: "Low", "Medium", "High"
@@ -184,6 +198,8 @@ Two-thumb range slider for in/out point selection.
 
 **Error during trim export:** If `VideoTrimManager` throws, dismiss trim progress state and show the existing `"Save Failed"` alert pattern (same as `PhotoSaveManager` failure in Phase 3) with message: "Could not trim recording. Try saving the full clip instead." Actions: "Save Full" and "Dismiss".
 
+**pendingTrimURL unreachable:** If `pendingTrimURL` references a file that cannot be opened (e.g. file was removed from temp directory before the sheet appeared), display the existing "Save Failed" alert with message: "Recording file unavailable. The clip may have been removed." Action: "Dismiss" only (no "Save Full" — the original URL is also lost). After dismiss, set `pendingTrimURL = nil`. Log the error internally.
+
 ### Disabled State During Recording
 
 The following are disabled while `recordingManager.phase == .recording`:
@@ -216,7 +232,9 @@ Resolution and bitrate changes do not require stopping a recording in progress �
 | Trim export error alert message | "Could not trim recording. Try saving the full clip instead." |
 | Trim export error alert — primary action | "Save Full" |
 | Trim export error alert — secondary action | "Dismiss" |
-| Empty state — trim sheet with corrupt source | (not expected; if pendingTrimURL is unreachable, fall back silently to "Save Full" path and log error) |
+| pendingTrimURL unreachable alert title | "Save Failed" |
+| pendingTrimURL unreachable alert message | "Recording file unavailable. The clip may have been removed." |
+| pendingTrimURL unreachable alert — action | "Dismiss" |
 | Success banner (inherited from Phase 3) | "Saved to Photos" |
 
 **Destructive actions:** None in Phase 4. "Save Trimmed" is not destructive — original temp file is deleted silently after successful export (no confirmation needed; user explicitly chose the trimmed version). The "Save Full" fallback preserves the full recording, so no data is lost in either path.
@@ -247,6 +265,7 @@ VoiceOver reading order for TrimSheet (top to bottom): video player region, trim
 ```
 pendingTrimURL = nil          → TrimSheet hidden
 pendingTrimURL = url          → TrimSheet visible, idle
+  file unreachable             → "Save Failed" alert (file unavailable copy) → Dismiss → pendingTrimURL = nil
   User taps "Save Trimmed"   → TrimSheet .trimming (spinner, buttons disabled)
     export success             → pendingTrimURL = nil, "Saved to Photos" banner
     export failure             → TrimSheet .error, alert shown
@@ -297,6 +316,11 @@ This project uses only system Apple frameworks. No external component registries
 | Touch target 44pt minimum | Apple HIG (standard iOS default) |
 | QualitySettingsButton disabled during recording | RESEARCH.md Anti-Patterns section (resolution cannot change mid-recording) |
 | Trim slider thumb shadow spec | Matches PiP shadow: `.shadow(color: .black.opacity(0.4), radius: 4)` from CameraContentView.swift |
+| Typography scale collapsed to 4 sizes (removed 15pt subheadline) | gsd-ui-checker BLOCK — Dimension 4. Settings sheet section headers moved from `.subheadline` to `.footnote` (13pt). |
+| Weight scale collapsed to 2 weights (regular + semibold only) | gsd-ui-checker BLOCK — Dimension 4. Timer `.bold()` → `.semibold`; control icon `.medium` → `.semibold`. |
+| QualitySettingsButton icon-only intentional declaration | gsd-ui-checker Recommendation — Dimension 2. Camera density constraint documented explicitly. |
+| RecordingStatusOverlay 6pt HStack spacing in exceptions table | gsd-ui-checker Recommendation — Dimension 5. Legacy Phase 1 value, deferred. |
+| pendingTrimURL unreachable copy added | gsd-ui-checker Recommendation — Dimension 1. |
 
 ---
 
