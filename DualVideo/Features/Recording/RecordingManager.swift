@@ -26,6 +26,10 @@ final class RecordingManager: NSObject, @unchecked Sendable {
     var phase: RecordingPhase = .idle
     var elapsedSeconds: Int = 0
     var pendingFileURL: URL? = nil
+    /// URL of the finalized recording awaiting trim/save action in TrimSheet (Plan 04).
+    /// Set after stopRecording() completes; cleared after TrimSheet acts on it.
+    /// nil = no recording pending.
+    var pendingTrimURL: URL? = nil
     /// Result of the most recent auto-save attempt. nil = no save attempted yet.
     var saveResult: Result<Void, PhotoSaveError>? = nil
 
@@ -175,15 +179,18 @@ final class RecordingManager: NSObject, @unchecked Sendable {
                 self.elapsedSeconds = 0
                 UIApplication.shared.endBackgroundTask(bgTask)
                 logger.info("RecordingManager: finalized, bgTask ended, url=\(url?.lastPathComponent ?? "nil")")
-                if let url { self.saveRecording(url: url) }
+                // Auto-save deferred: set pendingTrimURL so TrimSheet (Plan 04) can act.
+                // TrimSheet calls saveRecording(url:) after trim or "Save Full".
+                if let url { self.pendingTrimURL = url }
                 completion(url)
             }
         }
     }
 
-    /// Trigger Photos auto-save for the given URL. Called from stopRecording completion.
+    /// Trigger Photos auto-save for the given URL.
+    /// Internal (not private) so TrimSheet can call after trim or "Save Full" action (Plan 04).
     @MainActor
-    private func saveRecording(url: URL) {
+    func saveRecording(url: URL) {
         photoSaver.saveVideoToPhotos(url: url) { [weak self] result in
             // Already dispatched to main by PhotoSaveManager
             self?.saveResult = result
