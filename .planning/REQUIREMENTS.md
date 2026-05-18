@@ -86,10 +86,10 @@
 |-------------|-------|--------|
 | LAYOUT-01 | Phase 5 | Pending |
 | LAYOUT-02 | Phase 5 | Pending |
-| COMPOSITOR-01 | Phase 6 | Pending |
 | GLASS-01 | Phase 5 | Pending |
 | GLASS-02 | Phase 5 | Pending |
 | GLASS-03 | Phase 5 | Pending |
+| COMPOSITOR-01 | Phase 6 | Pending |
 | DEV-01 | Phase 1 | Complete |
 | DEV-02 | Phase 1 | Complete |
 | DEV-03 | Phase 3 | Complete |
