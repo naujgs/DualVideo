@@ -123,12 +123,66 @@ final class CameraManager: @unchecked Sendable {
         }
     }
 
+    /// Apply a resolution to both cameras by selecting matching AVCaptureDevice formats.
+    /// Must be called before session starts (format cannot change during active recording).
+    /// Call from sessionQueue. Exposed for use by CameraContentView via AppState.qualitySettings.
+    func applyResolutionFormat(resolution: OutputResolution) {
+        sessionQueue.async { [weak self] in
+            guard let self else { return }
+            self.session.beginConfiguration()
+            if let back = self.backDevice {
+                self.applyFormat(to: back, targetLandscapeWidth: resolution.landscapeWidth)
+            }
+            // Front device: get from session inputs
+            for input in self.session.inputs {
+                if let deviceInput = input as? AVCaptureDeviceInput,
+                   deviceInput.device.position == .front {
+                    self.applyFormat(to: deviceInput.device, targetLandscapeWidth: resolution.landscapeWidth)
+                }
+            }
+            self.session.commitConfiguration()
+            let cost = self.session.hardwareCost
+            logger.info("CameraManager: applyResolutionFormat complete, hardwareCost=\(cost, format: .fixed(precision: 3))")
+            if cost >= 0.9 {
+                logger.error("CameraManager: hardwareCost \(cost) >= 0.9 after format change — may need to revert")
+            }
+        }
+    }
+
     /// Sync isSessionRunning with the actual session state. Called after interruptionEnded.
     func syncSessionRunningState() {
         sessionQueue.async { [weak self] in
             guard let self else { return }
             let running = self.session.isRunning
             DispatchQueue.main.async { self.isSessionRunning = running }
+        }
+    }
+
+    // MARK: - Private helpers
+
+    /// Selects the AVCaptureDevice activeFormat matching targetLandscapeWidth.
+    /// Filters for isMultiCamSupported to avoid formats invalid for AVCaptureMultiCamSession.
+    /// Must be called inside a beginConfiguration/commitConfiguration block on sessionQueue.
+    /// - Parameters:
+    ///   - device: The AVCaptureDevice to configure.
+    ///   - targetLandscapeWidth: Landscape pixel width (1280 for 720p, 1920 for 1080p).
+    private func applyFormat(to device: AVCaptureDevice, targetLandscapeWidth: Int) {
+        let preferred = device.formats.first { fmt in
+            let dims = CMVideoFormatDescriptionGetDimensions(fmt.formatDescription)
+            return Int(dims.width) == targetLandscapeWidth && fmt.isMultiCamSupported
+        }
+        guard let format = preferred else {
+            logger.warning("CameraManager: no isMultiCamSupported format found for landscapeWidth=\(targetLandscapeWidth) on \(device.localizedName) — keeping current format")
+            return
+        }
+        do {
+            try device.lockForConfiguration()
+            device.activeFormat = format
+            device.unlockForConfiguration()
+            let dims = CMVideoFormatDescriptionGetDimensions(format.formatDescription)
+            logger.info("CameraManager: set activeFormat \(dims.width)×\(dims.height) on \(device.localizedName)")
+        } catch {
+            logger.error("CameraManager: format lock failed for \(device.localizedName): \(error)")
         }
     }
 
@@ -281,6 +335,19 @@ final class CameraManager: @unchecked Sendable {
             }
         } else {
             logger.warning("CameraManager: microphone input unavailable — no audio will be recorded")
+        }
+
+        // Apply initial resolution format from default settings (D-01: 1080p default)
+        // Uses backDevice captured above; front device accessed via session inputs
+        let defaultResolution = VideoQualitySettings().resolution
+        if let back = backDevice {
+            applyFormat(to: back, targetLandscapeWidth: defaultResolution.landscapeWidth)
+        }
+        for input in session.inputs {
+            if let deviceInput = input as? AVCaptureDeviceInput,
+               deviceInput.device.position == .front {
+                applyFormat(to: deviceInput.device, targetLandscapeWidth: defaultResolution.landscapeWidth)
+            }
         }
 
         // Explicit commitConfiguration() BEFORE reading hardwareCost.
