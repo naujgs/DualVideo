@@ -86,8 +86,12 @@ Plans:
   3. Zoom label, torch toggle, and quality button all display a glass/material background (no black opacity rectangle visible).
   4. On iOS 26+, controls use `.glassEffect()`; on iOS 18–25, `.ultraThinMaterial` is used — both render without visual artifacts.
   5. Recording status overlay (elapsed time capsule) matches the glass style of the other controls with no visual inconsistency.
-**Plans**: TBD
+**Plans**: 2 plans
 **UI hint**: yes
+
+Plans:
+- [ ] 05-01-PLAN.md — GlassBackground.swift shared modifier + ZoomPresetView (replaces ZoomLabelView), three tappable glass capsule buttons (GLASS-01, GLASS-02, LAYOUT-01)
+- [ ] 05-02-PLAN.md — CameraContentView layout restructure + TorchToggleButton/QualitySettingsButton glass + sheet glass + human-verify checkpoint (LAYOUT-01, LAYOUT-02, GLASS-01, GLASS-02, GLASS-03)
 
 ### Phase 6: Compositor Polish
 **Goal**: The PiP overlay in the saved video file has the same 12pt rounded corners as the live preview overlay.
@@ -107,5 +111,5 @@ Plans:
 | 2. Recording Pipeline - Compositor, Writer, Audio | 3/3 | Complete | 2026-05-17 |
 | 3. Save, Polish, and Edge Cases | 3/3 | Complete   | 2026-05-17 |
 | 4. Video Quality and Export Options | 4/4 | Complete | 2026-05-17 |
-| 5. UI Polish | 0/? | Not started | — |
+| 5. UI Polish | 0/2 | Not started | — |
 | 6. Compositor Polish | 0/? | Not started | — |
