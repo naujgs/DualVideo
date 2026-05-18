@@ -43,6 +43,8 @@
 		1A000081 /* VideoTrimManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000081 /* VideoTrimManager.swift */; };
 		1A000082 /* VideoQualitySettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000082 /* VideoQualitySettingsTests.swift */; };
 		1A000083 /* VideoTrimManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000083 /* VideoTrimManagerTests.swift */; };
+		1A000090 /* QualitySettingsButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000090 /* QualitySettingsButton.swift */; };
+		1A000091 /* QualitySettingsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000091 /* QualitySettingsSheet.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -93,6 +95,8 @@
 		1B000081 /* VideoTrimManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoTrimManager.swift; sourceTree = "<group>"; };
 		1B000082 /* VideoQualitySettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoQualitySettingsTests.swift; sourceTree = "<group>"; };
 		1B000083 /* VideoTrimManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoTrimManagerTests.swift; sourceTree = "<group>"; };
+		1B000090 /* QualitySettingsButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QualitySettingsButton.swift; sourceTree = "<group>"; };
+		1B000091 /* QualitySettingsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QualitySettingsSheet.swift; sourceTree = "<group>"; };
 		1C000001 /* DualVideo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DualVideo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1C000002 /* DualVideoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DualVideoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -186,6 +190,8 @@
 				1B000043 /* RecordingStatusOverlay.swift */,
 				1B000060 /* TorchToggleButton.swift */,
 				1B000061 /* ZoomLabelView.swift */,
+				1B000090 /* QualitySettingsButton.swift */,
+				1B000091 /* QualitySettingsSheet.swift */,
 			);
 			path = UI;
 			sourceTree = "<group>";
@@ -369,6 +375,8 @@
 				1A000061 /* ZoomLabelView.swift in Sources */,
 				1A000080 /* VideoQualitySettings.swift in Sources */,
 				1A000081 /* VideoTrimManager.swift in Sources */,
+				1A000090 /* QualitySettingsButton.swift in Sources */,
+				1A000091 /* QualitySettingsSheet.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
