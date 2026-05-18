@@ -8,6 +8,15 @@ DualVideo is an iPhone app that records both the front and back cameras simultan
 
 Both cameras record together and the result lands in Photos as a single watchable video — that moment of capture must always work, even if every other feature is rough.
 
+## Current Milestone: v1.2 Visual Polish
+
+**Goal:** Reorganize the camera UI layout and apply a cohesive liquid glass visual style, including fixing PiP rounded corners in the recorded video output.
+
+**Target features:**
+- Layout reorganization: zoom label moved above record button; quality button moved to bottom-right
+- PiP rounded corners preserved in compositor output (saved video matches live preview)
+- Liquid glass style applied to buttons and overlays (ultraThinMaterial baseline; `.glassEffect()` on iOS 26+)
+
 ## Requirements
 
 ### Validated
@@ -18,12 +27,12 @@ Both cameras record together and the result lands in Photos as a single watchabl
 - [x] Camera, microphone, and Photo Library permissions are handled with clear prompts and graceful fallback messaging — Validated in Phase 01
 - [x] Graceful detection and user-facing error when device does not support AVCaptureMultiCamSession (pre-A12 hardware) — Validated in Phase 01
 
-### Active
+### Active (v1.2)
 
-- [ ] Single master Record / Stop button starts and stops both cameras in sync
-- [ ] Combined PiP layout is captured into a single 1080p .mov / .mp4 file saved to Photos
-- [ ] Audio is mixed from both front and back microphones into the recorded file
-- [ ] 3-second countdown timer before recording begins
+- [ ] Zoom label is positioned above the record button (bottom-center area)
+- [ ] Quality settings button is positioned at bottom-right
+- [ ] PiP overlay in saved video has the same rounded corners as the live preview
+- [ ] Liquid glass visual style applied to all UI controls and overlays
 
 ### Out of Scope
 
@@ -80,4 +89,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-16 after Phase 01 completion — live preview, permissions, PiP drag, and pinch zoom validated on device*
+*Last updated: 2026-05-18 — Milestone v1.2 Visual Polish started*
