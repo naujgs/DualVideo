@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		1A000001 /* DualVideoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000001 /* DualVideoApp.swift */; };
 		1A000002 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000002 /* AppState.swift */; };
+		1A000092 /* GlassBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000092 /* GlassBackground.swift */; };
 		1A000003 /* PermissionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000003 /* PermissionManager.swift */; };
 		1A000004 /* UnsupportedDeviceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000004 /* UnsupportedDeviceView.swift */; };
 		1A000005 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000005 /* RootView.swift */; };
@@ -58,6 +59,7 @@
 /* Begin PBXFileReference section */
 		1B000001 /* DualVideoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DualVideoApp.swift; sourceTree = "<group>"; };
 		1B000002 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		1B000092 /* GlassBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassBackground.swift; sourceTree = "<group>"; };
 		1B000003 /* PermissionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionManager.swift; sourceTree = "<group>"; };
 		1B000004 /* UnsupportedDeviceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnsupportedDeviceView.swift; sourceTree = "<group>"; };
 		1B000005 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
@@ -195,6 +197,7 @@
 			isa = PBXGroup;
 			children = (
 				1B000002 /* AppState.swift */,
+				1B000092 /* GlassBackground.swift */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
@@ -370,6 +373,7 @@
 				1A000080 /* VideoQualitySettings.swift in Sources */,
 				1A000090 /* QualitySettingsButton.swift in Sources */,
 				1A000091 /* QualitySettingsSheet.swift in Sources */,
+				1A000092 /* GlassBackground.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
