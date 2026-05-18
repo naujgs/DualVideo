@@ -454,22 +454,25 @@ Note: 720p at Low (3 Mbps) produces the same file size as 1080p at Low because b
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Can `AVAssetExportPresetPassthrough` be used with the composited `.mov`?**
    - What we know: Passthrough is documented for re-packaging without re-encode; the source is a valid AVAssetWriter-produced H.264 .mov.
    - What's unclear: Whether keyframe interval (30 frames = 1 sec) limits trim precision to ±1 second at boundaries.
    - Recommendation: Test in `VideoTrimManagerTests` with a short synthetic `.mov`. If passthrough fails, fall back to `AVAssetExportPresetHighestQuality`.
+   - RESOLVED: Plans use `AVAssetExportPresetPassthrough`; `VideoTrimManagerTests` validates end-to-end (Plan 04-01 Wave 0). Fallback to `AVAssetExportPresetHighestQuality` is documented in the `VideoTrimManager` action block (Plan 04-02).
 
 2. **Does changing `device.activeFormat` during session configuration affect `hardwareCost` enough to require re-validation?**
    - What we know: The existing code guards `hardwareCost < 0.9` after `commitConfiguration()`. Format changes happen inside `beginConfiguration()` / `commitConfiguration()`.
    - What's unclear: Whether selecting 720p formats for both cameras reduces cost enough to notice, or whether it could exceed budget in unexpected combinations.
    - Recommendation: Always re-read and log `hardwareCost` after format-change commit; keep the existing `< 0.9` guard.
+   - RESOLVED: Plans log `hardwareCost` after `activeFormat` change in `CameraManager` (Plan 04-02 Task 2). No blocking re-validation required — diagnostic logging is sufficient; the existing `< 0.9` guard is retained.
 
 3. **Is `VideoPlayer(player:)` from AVKit suitable for the trim preview, or does `AVPlayerViewController` wrapped in `UIViewControllerRepresentable` perform better?**
    - What we know: `VideoPlayer` is a SwiftUI native API. `AVPlayerViewController` supports native transport controls but is harder to customize.
    - What's unclear: Whether `VideoPlayer` supports seeking by scrubbing the AVPlayer `.seek(to:)` reliably during simultaneous gesture handling.
    - Recommendation: Use `VideoPlayer(player:)` first (simpler). If scrubbing is laggy, switch to `AVPlayerViewController` wrapped in `UIViewControllerRepresentable`.
+   - RESOLVED: Plans use `VideoPlayer(player:)` from AVKit in `TrimSheet` (Plan 04-04 Task 1) for inline playback. If scrubbing proves laggy during implementation, the fallback to `AVPlayerViewController` in `UIViewControllerRepresentable` is documented as a known escape hatch.
 
 ---
 
