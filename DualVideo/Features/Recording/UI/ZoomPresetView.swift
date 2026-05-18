@@ -43,7 +43,7 @@ struct ZoomPresetView: View {
                         ? "\(Int(preset))x zoom, selected"
                         : "\(Int(preset))x zoom"
                 )
-                .accessibilityAddTraits(isActive(preset) ? .isSelected : [])
+                .accessibilityAddTraits(isActive(preset) ? .isSelected : [] as AccessibilityTraits)
             }
         }
 
