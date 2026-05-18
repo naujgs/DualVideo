@@ -91,26 +91,26 @@ struct CameraContentView: View {
                     }
                 }
 
-                // Torch button — left column, above home indicator
+                // Torch + zoom label — left column, unified camera control group
                 VStack {
                     Spacer()
                     HStack {
-                        TorchToggleButton(
-                            isTorchOn: cameraManager.isTorchOn,
-                            onTap: { cameraManager.toggleTorch() }
-                        )
+                        VStack(spacing: 8) {
+                            TorchToggleButton(
+                                isTorchOn: cameraManager.isTorchOn,
+                                onTap: { cameraManager.toggleTorch() }
+                            )
+                            ZoomLabelView(zoomFactor: cameraManager.backZoomFactor)
+                        }
                         .padding(.leading, 20)
                         .padding(.bottom, geo.safeAreaInsets.bottom + 24)
                         Spacer()
                     }
                 }
 
-                // Record/Stop button + zoom label + save banner: bottom-center stack
+                // Record/Stop button + save banner: bottom-center stack
                 VStack(spacing: 0) {
                     Spacer()
-                    // Zoom label: always visible just above the record button
-                    ZoomLabelView(zoomFactor: cameraManager.backZoomFactor)
-                        .padding(.bottom, 10)
                     // Transient success banner: appears 2.5s after successful save (OUT-02)
                     if case .success = recordingManager.saveResult {
                         Text("Saved to Photos")

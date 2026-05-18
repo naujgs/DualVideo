@@ -5,7 +5,7 @@ struct ZoomLabelView: View {
 
     var body: some View {
         Text(Self.formatZoom(zoomFactor))
-            .font(.system(size: 14, weight: .semibold, design: .monospaced))
+            .font(.system(.footnote, design: .monospaced, weight: .semibold))
             .foregroundStyle(.white)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)

@@ -30,6 +30,8 @@ struct RecordingStatusOverlay: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
         .background(.ultraThinMaterial, in: Capsule())
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Recording — \(formattedTime)")
     }
 
     private var formattedTime: String {

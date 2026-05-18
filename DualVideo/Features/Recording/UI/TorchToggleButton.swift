@@ -9,7 +9,7 @@ struct TorchToggleButton: View {
     var body: some View {
         Button(action: onTap) {
             Image(systemName: isTorchOn ? "flashlight.on.fill" : "flashlight.off.fill")
-                .font(.system(size: 30, weight: .medium))
+                .font(.system(.title2, design: .default, weight: .medium))
                 .foregroundStyle(isTorchOn ? Color.yellow : Color.white)
                 .padding(16)
                 .background(Color.black.opacity(0.4))
