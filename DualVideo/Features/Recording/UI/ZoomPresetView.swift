@@ -33,8 +33,8 @@ struct ZoomPresetView: View {
                         .font(.system(.footnote, design: .monospaced,
                                       weight: isActive(preset) ? .bold : .regular))
                         .foregroundStyle(isActive(preset) ? Color.yellow : Color.white)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
+                        .padding(.horizontal, 28)
+                        .padding(.vertical, 16)
                 }
                 .buttonStyle(.plain)
                 .cameraGlassBackground(in: Capsule())
