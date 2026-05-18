@@ -232,15 +232,5 @@ struct CameraContentView: View {
                 onDismiss: { appState.qualitySettings.save() }
             )
         }
-        // TrimSheet — post-recording trim UI (Plan 04).
-        // Presented when pendingTrimURL is set after stopRecording() completes.
-        .sheet(isPresented: Binding(
-            get: { recordingManager.pendingTrimURL != nil },
-            set: { if !$0 { recordingManager.pendingTrimURL = nil } }
-        )) {
-            if let url = recordingManager.pendingTrimURL {
-                TrimSheet(sourceURL: url, recordingManager: recordingManager)
-            }
-        }
     }
 }
