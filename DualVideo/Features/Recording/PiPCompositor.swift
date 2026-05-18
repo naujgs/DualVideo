@@ -69,6 +69,10 @@ final class PiPCompositor: NSObject {
     /// The AVCaptureVideoDataOutput wired to the front camera. Set by CameraManager.
     nonisolated(unsafe) weak var frontVideoOutput: AVCaptureVideoDataOutput?
 
+    // MARK: - Rounded corner mask cache (created once per pip size — constant within a recording)
+    nonisolated(unsafe) private var cachedRoundedMask: CIImage?
+    nonisolated(unsafe) private var cachedMaskPipWidth: CGFloat = 0
+
     // MARK: - Init
 
     override init() {
@@ -126,12 +130,27 @@ final class PiPCompositor: NSObject {
             .transformed(by: CGAffineTransform(scaleX: scaleX, y: scaleY))
             .transformed(by: CGAffineTransform(translationX: pipRect.minX, y: pipRect.minY))
 
+        // Apply rounded corners matching the live UI (.clipShape(RoundedRectangle(cornerRadius: 12)))
+        let roundedFront: CIImage
+        if let mask = roundedCornerMask(pipWidth: pipRect.width, pipHeight: pipRect.height),
+           let blendFilter = CIFilter(name: "CIBlendWithAlphaMask") {
+            let translatedMask = mask.transformed(
+                by: CGAffineTransform(translationX: pipRect.minX, y: pipRect.minY)
+            )
+            blendFilter.setValue(scaledFront, forKey: kCIInputImageKey)
+            blendFilter.setValue(CIImage.empty(), forKey: kCIInputBackgroundImageKey)
+            blendFilter.setValue(translatedMask, forKey: kCIInputMaskImageKey)
+            roundedFront = blendFilter.outputImage ?? scaledFront
+        } else {
+            roundedFront = scaledFront
+        }
+
         // Composite: front over back using CISourceOverCompositing
         guard let compositeFilter = CIFilter(name: "CISourceOverCompositing") else {
             logger.error("PiPCompositor: CISourceOverCompositing unavailable")
             return nil
         }
-        compositeFilter.setValue(scaledFront, forKey: kCIInputImageKey)
+        compositeFilter.setValue(roundedFront, forKey: kCIInputImageKey)
         compositeFilter.setValue(backCI, forKey: kCIInputBackgroundImageKey)
         guard let composited = compositeFilter.outputImage else {
             logger.error("PiPCompositor: CIFilter produced nil outputImage")
@@ -154,6 +173,35 @@ final class PiPCompositor: NSObject {
         }
         // Fallback: allocate directly (used in tests and before MovieRecorder sets pool)
         return allocateFallbackBuffer()
+    }
+
+    /// Returns a CIImage mask with a rounded rectangle (white inside, transparent outside).
+    /// Cached by pipWidth — recreated only if pip dimensions change (rare).
+    /// Corner radius matches the live UI: 12pt × (video pixels / screen points).
+    private func roundedCornerMask(pipWidth: CGFloat, pipHeight: CGFloat) -> CIImage? {
+        if cachedMaskPipWidth == pipWidth, let cached = cachedRoundedMask {
+            return cached
+        }
+        let cornerRadius = 12.0 * pipWidth / (screenWidthSnapshot * 0.28)
+        let size = CGSize(width: pipWidth, height: pipHeight)
+        guard let ctx = CGContext(
+            data: nil,
+            width: Int(size.width),
+            height: Int(size.height),
+            bitsPerComponent: 8,
+            bytesPerRow: 0,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else { return nil }
+        ctx.setFillColor(red: 1, green: 1, blue: 1, alpha: 1)
+        let path = UIBezierPath(roundedRect: CGRect(origin: .zero, size: size), cornerRadius: cornerRadius)
+        ctx.addPath(path.cgPath)
+        ctx.fillPath()
+        guard let cgImage = ctx.makeImage() else { return nil }
+        let mask = CIImage(cgImage: cgImage)
+        cachedRoundedMask = mask
+        cachedMaskPipWidth = pipWidth
+        return mask
     }
 
     private func allocateFallbackBuffer() -> CVPixelBuffer? {

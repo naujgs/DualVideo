@@ -3,7 +3,7 @@ import SwiftUI
 /// Horizontal row of three tappable zoom preset buttons: 1x, 2x, 3x.
 ///
 /// Replaces ZoomLabelView. Matches the iPhone Camera app aesthetic:
-/// capsule-shaped glass buttons, active state expressed through bold weight + primary color.
+/// capsule-shaped glass buttons, active state expressed through bold weight + yellow color.
 ///
 /// Active threshold: abs(currentZoom - preset) < 0.25 (D-07, Claude's discretion).
 /// The threshold covers normal tap-settle positions without requiring exact floating-point equality.
@@ -32,9 +32,9 @@ struct ZoomPresetView: View {
                     Text(presetLabel(preset))
                         .font(.system(.footnote, design: .monospaced,
                                       weight: isActive(preset) ? .bold : .regular))
-                        .foregroundStyle(isActive(preset) ? Color.primary : Color.white)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
+                        .foregroundStyle(isActive(preset) ? Color.yellow : Color.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
                 }
                 .buttonStyle(.plain)
                 .cameraGlassBackground(in: Capsule())
