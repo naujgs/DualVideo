@@ -38,6 +38,7 @@
 		1A000060 /* TorchToggleButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000060 /* TorchToggleButton.swift */; };
 		1A000061 /* ZoomLabelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000061 /* ZoomLabelView.swift */; };
 		1A000062 /* ZoomLabelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000062 /* ZoomLabelTests.swift */; };
+		1A000070 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1B000070 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -83,6 +84,7 @@
 		1B000060 /* TorchToggleButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TorchToggleButton.swift; sourceTree = "<group>"; };
 		1B000061 /* ZoomLabelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZoomLabelView.swift; sourceTree = "<group>"; };
 		1B000062 /* ZoomLabelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZoomLabelTests.swift; sourceTree = "<group>"; };
+		1B000070 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		1C000001 /* DualVideo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DualVideo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1C000002 /* DualVideoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DualVideoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -131,6 +133,7 @@
 				1E000010 /* App */,
 				1E000011 /* Features */,
 				1E000012 /* Shared */,
+				1B000070 /* Assets.xcassets */,
 			);
 			path = DualVideo;
 			sourceTree = "<group>";
@@ -323,6 +326,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1A000070 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -541,6 +545,7 @@
 		3B000005 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 7ZV82QKPX6;
@@ -568,6 +573,7 @@
 		3B000006 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 7ZV82QKPX6;
