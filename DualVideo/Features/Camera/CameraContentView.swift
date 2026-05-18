@@ -6,9 +6,12 @@ struct CameraContentView: View {
     let cameraManager: CameraManager
     let recordingManager: RecordingManager
 
+    @Environment(AppState.self) private var appState
+
     @State private var pipState = PiPOverlayState()
     @State private var activeZoomBase: CGFloat = 1.0  // zoom at gesture start
     @State private var safeAreaInsets: EdgeInsets = .init()
+    @State private var showQualitySettings = false
 
     var body: some View {
         GeometryReader { geo in
@@ -96,6 +99,13 @@ struct CameraContentView: View {
                     Spacer()
                     HStack {
                         VStack(spacing: 8) {
+                            QualitySettingsButton(
+                                isRecording: {
+                                    if case .recording = recordingManager.phase { return true }
+                                    return false
+                                }(),
+                                onTap: { showQualitySettings = true }
+                            )
                             TorchToggleButton(
                                 isTorchOn: cameraManager.isTorchOn,
                                 onTap: { cameraManager.toggleTorch() }
@@ -142,7 +152,8 @@ struct CameraContentView: View {
                             if case .recording = recordingManager.phase {
                                 recordingManager.stopRecording()
                             } else if case .idle = recordingManager.phase {
-                                recordingManager.startRecording()
+                                // Pass user's persisted quality selection (VQ-01, VQ-02, VQ-04)
+                                recordingManager.startRecording(settings: appState.qualitySettings)
                             }
                         }
                     )
@@ -211,5 +222,20 @@ struct CameraContentView: View {
                 }
             }
         )
+        // Quality settings sheet — opened from QualitySettingsButton in left column
+        .sheet(isPresented: $showQualitySettings) {
+            QualitySettingsSheet(
+                settings: Binding(
+                    get: { appState.qualitySettings },
+                    set: { appState.qualitySettings = $0 }
+                ),
+                onDismiss: {
+                    appState.qualitySettings.save()
+                    // Apply updated resolution and frame rate to both cameras
+                    cameraManager.applyResolutionFormat(resolution: appState.qualitySettings.resolution)
+                    cameraManager.applyFrameRate(appState.qualitySettings.frameRate)
+                }
+            )
+        }
     }
 }

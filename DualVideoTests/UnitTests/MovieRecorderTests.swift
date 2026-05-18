@@ -77,4 +77,59 @@ final class MovieRecorderTests: XCTestCase {
                            "File must be deleted after cancelAndDiscard")
         }
     }
+
+    // MARK: - Settings-driven tests (Plan 04-02, Task 1)
+
+    /// startRecording(settings:) with 720p/low must set adaptor dimensions to 720×1280
+    func testStartRecordingWith720pLowCreatesWith720x1280Adaptor() {
+        let recorder = MovieRecorder()
+        let settings = VideoQualitySettings(resolution: .hd720p, bitrate: .low)
+        recorder.startRecording(settings: settings)
+
+        guard let adaptor = recorder.adaptor else {
+            XCTFail("adaptor must not be nil after startRecording(settings:)")
+            return
+        }
+        let pool = adaptor.pixelBufferPool
+        XCTAssertNotNil(pool, "pixelBufferPool must exist after startRecording with 720p/low")
+
+        // Verify the pool was created with 720×1280 by creating a buffer and checking dimensions
+        var buf: CVPixelBuffer?
+        let status = CVPixelBufferPoolCreatePixelBuffer(kCFAllocatorDefault, pool!, &buf)
+        XCTAssertEqual(status, kCVReturnSuccess, "Should be able to create pixel buffer from pool")
+        if let buf = buf {
+            XCTAssertEqual(CVPixelBufferGetWidth(buf), 720,
+                           "Pool pixel buffer width must be 720 for hd720p")
+            XCTAssertEqual(CVPixelBufferGetHeight(buf), 1280,
+                           "Pool pixel buffer height must be 1280 for hd720p")
+        }
+
+        recorder.cancelAndDiscard()
+    }
+
+    /// startRecording(settings:) with 1080p/high must set adaptor dimensions to 1080×1920
+    func testStartRecordingWith1080pHighCreatesWith1080x1920Adaptor() {
+        let recorder = MovieRecorder()
+        let settings = VideoQualitySettings(resolution: .hd1080p, bitrate: .high)
+        recorder.startRecording(settings: settings)
+
+        guard let adaptor = recorder.adaptor else {
+            XCTFail("adaptor must not be nil after startRecording(settings:)")
+            return
+        }
+        let pool = adaptor.pixelBufferPool
+        XCTAssertNotNil(pool, "pixelBufferPool must exist after startRecording with 1080p/high")
+
+        var buf: CVPixelBuffer?
+        let status = CVPixelBufferPoolCreatePixelBuffer(kCFAllocatorDefault, pool!, &buf)
+        XCTAssertEqual(status, kCVReturnSuccess, "Should be able to create pixel buffer from pool")
+        if let buf = buf {
+            XCTAssertEqual(CVPixelBufferGetWidth(buf), 1080,
+                           "Pool pixel buffer width must be 1080 for hd1080p")
+            XCTAssertEqual(CVPixelBufferGetHeight(buf), 1920,
+                           "Pool pixel buffer height must be 1920 for hd1080p")
+        }
+
+        recorder.cancelAndDiscard()
+    }
 }
