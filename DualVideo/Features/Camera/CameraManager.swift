@@ -184,14 +184,52 @@ final class CameraManager: @unchecked Sendable {
     // MARK: - Private helpers
 
     /// Sets activeVideoMinFrameDuration and activeVideoMaxFrameDuration on a device.
+    /// If the current activeFormat doesn't support the requested frame rate, first switches
+    /// to a format that does (matching the same landscape width) before setting the duration.
     /// Must be called on sessionQueue.
     private func setFrameDuration(_ duration: CMTime, on device: AVCaptureDevice) {
+        let targetFPS = Double(duration.timescale) / Double(duration.value)
+
+        // Check whether the active format already supports the target FPS.
+        let supported = device.activeFormat.videoSupportedFrameRateRanges.contains {
+            $0.minFrameRate <= targetFPS && targetFPS <= $0.maxFrameRate
+        }
+
+        if !supported {
+            // Find a format that matches the current landscape width AND supports the FPS.
+            let currentWidth = CMVideoFormatDescriptionGetDimensions(
+                device.activeFormat.formatDescription).width
+            let candidate = device.formats.first { fmt in
+                guard fmt.isMultiCamSupported else { return false }
+                let w = CMVideoFormatDescriptionGetDimensions(fmt.formatDescription).width
+                guard w == currentWidth else { return false }
+                return fmt.videoSupportedFrameRateRanges.contains {
+                    $0.minFrameRate <= targetFPS && targetFPS <= $0.maxFrameRate
+                }
+            }
+            if let candidate {
+                do {
+                    try device.lockForConfiguration()
+                    device.activeFormat = candidate
+                    device.unlockForConfiguration()
+                    logger.info("CameraManager: switched format on \(device.localizedName) to support \(Int(targetFPS)) fps")
+                } catch {
+                    logger.error("CameraManager: format switch failed for \(device.localizedName): \(error)")
+                    return
+                }
+            } else {
+                // No format supports this FPS at the current resolution — log and skip.
+                logger.warning("CameraManager: \(device.localizedName) has no format supporting \(Int(targetFPS)) fps at current resolution — skipping frame rate change")
+                return
+            }
+        }
+
         do {
             try device.lockForConfiguration()
             device.activeVideoMinFrameDuration = duration
             device.activeVideoMaxFrameDuration = duration
             device.unlockForConfiguration()
-            logger.info("CameraManager: set frame duration \(duration.timescale) fps on \(device.localizedName)")
+            logger.info("CameraManager: set frame duration \(Int(targetFPS)) fps on \(device.localizedName)")
         } catch {
             logger.error("CameraManager: frame duration lock failed for \(device.localizedName): \(error)")
         }
