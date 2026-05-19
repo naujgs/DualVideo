@@ -48,6 +48,10 @@ final class CameraManager: @unchecked Sendable {
     var isSessionRunning: Bool = false
     var sessionError: String? = nil
     var isTorchOn: Bool = false
+    /// Whether the back camera supports 4K (3840-wide) in MultiCam mode.
+    /// Set once at session startup by detect4KCapability(). Observable: SwiftUI auto-updates.
+    /// K4-01: format-based check (isMultiCamSupported && dims.width == 3840).
+    var supports4K: Bool = false
 
     init() {
         backPreviewLayer = AVCaptureVideoPreviewLayer()
@@ -457,6 +461,10 @@ final class CameraManager: @unchecked Sendable {
             self.frontPreviewLayer.videoGravity = .resizeAspectFill
         }
 
+        // K4-01: detect 4K MultiCam capability after commitConfiguration(), before startRunning().
+        // backDevice is confirmed assigned by this point.
+        detect4KCapability()
+
         session.startRunning()
         DispatchQueue.main.async { [weak self] in self?.isSessionRunning = true }
         logger.info("AVCaptureMultiCamSession started")
@@ -465,5 +473,45 @@ final class CameraManager: @unchecked Sendable {
     private func handleError(_ message: String) {
         logger.error("\(message)")
         DispatchQueue.main.async { [weak self] in self?.sessionError = message }
+    }
+
+    // MARK: - 4K Capability Detection (K4-01)
+
+    /// Determines whether the back camera supports 4K (3840×2160) in MultiCam mode.
+    /// Must be called on sessionQueue, after commitConfiguration(), before startRunning().
+    /// Sets supports4K on main actor via DispatchQueue.main.async.
+    ///
+    /// Detection: isMultiCamSupported && dims.width == 3840.
+    /// isMultiCamSupported is Apple's whitelist for formats that can participate in MultiCam
+    /// without exceeding ISP bandwidth — it is the correct proxy for hardwareCost safety.
+    ///
+    /// Logs INFO for capability result (always visible) and DEBUG per-format (dev diagnosis).
+    /// STATE.md blocker: iPhone 17 Pro Max A18 Pro 4K MultiCam is MEDIUM confidence —
+    /// full format list at DEBUG level allows diagnosis without a test rebuild.
+    private func detect4KCapability() {
+        guard let back = backDevice else {
+            logger.warning("CameraManager: detect4KCapability — backDevice nil, supports4K=false")
+            DispatchQueue.main.async { [weak self] in self?.supports4K = false }
+            return
+        }
+
+        let has4K = back.formats.contains { fmt in
+            guard fmt.isMultiCamSupported else { return false }
+            let dims = CMVideoFormatDescriptionGetDimensions(fmt.formatDescription)
+            return Int(dims.width) == 3840
+        }
+
+        logger.info("CameraManager: detect4KCapability result=\(has4K)")
+
+        // Log all back formats at DEBUG level — required for Phase 8 device validation.
+        // See STATE.md blocker: "Log full back.formats list at session startup to diagnose."
+        for fmt in back.formats {
+            let dims = CMVideoFormatDescriptionGetDimensions(fmt.formatDescription)
+            logger.debug("  back format \(dims.width)x\(dims.height) isMultiCamSupported=\(fmt.isMultiCamSupported)")
+        }
+
+        DispatchQueue.main.async { [weak self] in
+            self?.supports4K = has4K
+        }
     }
 }
