@@ -5,6 +5,12 @@
       "comment" : "Shown in iOS permission prompt when app first requests camera access",
       "extractionState" : "manual",
       "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DualVideo uses your back and front cameras simultaneously to record a picture-in-picture video."
+          }
+        },
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -17,6 +23,12 @@
       "comment" : "Shown in iOS permission prompt when app first requests microphone access",
       "extractionState" : "manual",
       "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DualVideo records audio alongside your dual-camera video."
+          }
+        },
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -29,6 +41,12 @@
       "comment" : "Shown in iOS permission prompt when app first requests photo library add access",
       "extractionState" : "manual",
       "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DualVideo saves your recordings directly to your Photo Library."
+          }
+        },
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
