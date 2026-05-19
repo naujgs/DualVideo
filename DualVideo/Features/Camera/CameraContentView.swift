@@ -91,6 +91,7 @@ struct CameraContentView: View {
                             .transition(.opacity)
                         Spacer()
                     }
+                    .allowsHitTesting(false)
                 }
 
                 // Bottom-leading: Torch toggle (D-03 — symmetric counterpart to quality button)
