@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		1A000001 /* DualVideoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000001 /* DualVideoApp.swift */; };
 		1A000002 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000002 /* AppState.swift */; };
+		1A000092 /* GlassBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000092 /* GlassBackground.swift */; };
 		1A000003 /* PermissionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000003 /* PermissionManager.swift */; };
 		1A000004 /* UnsupportedDeviceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000004 /* UnsupportedDeviceView.swift */; };
 		1A000005 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000005 /* RootView.swift */; };
@@ -36,13 +37,12 @@
 		1A000051 /* PhotoSaveManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000051 /* PhotoSaveManagerTests.swift */; };
 		1A000052 /* PiPSnapTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000052 /* PiPSnapTests.swift */; };
 		1A000060 /* TorchToggleButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000060 /* TorchToggleButton.swift */; };
-		1A000061 /* ZoomLabelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000061 /* ZoomLabelView.swift */; };
-		1A000062 /* ZoomLabelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000062 /* ZoomLabelTests.swift */; };
 		1A000070 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1B000070 /* Assets.xcassets */; };
 		1A000080 /* VideoQualitySettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000080 /* VideoQualitySettings.swift */; };
 		1A000082 /* VideoQualitySettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000082 /* VideoQualitySettingsTests.swift */; };
 		1A000090 /* QualitySettingsButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000090 /* QualitySettingsButton.swift */; };
 		1A000091 /* QualitySettingsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000091 /* QualitySettingsSheet.swift */; };
+		1A000094 /* ZoomIndicatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000094 /* ZoomIndicatorView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -58,6 +58,7 @@
 /* Begin PBXFileReference section */
 		1B000001 /* DualVideoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DualVideoApp.swift; sourceTree = "<group>"; };
 		1B000002 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		1B000092 /* GlassBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassBackground.swift; sourceTree = "<group>"; };
 		1B000003 /* PermissionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionManager.swift; sourceTree = "<group>"; };
 		1B000004 /* UnsupportedDeviceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnsupportedDeviceView.swift; sourceTree = "<group>"; };
 		1B000005 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
@@ -86,13 +87,12 @@
 		1B000051 /* PhotoSaveManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoSaveManagerTests.swift; sourceTree = "<group>"; };
 		1B000052 /* PiPSnapTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiPSnapTests.swift; sourceTree = "<group>"; };
 		1B000060 /* TorchToggleButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TorchToggleButton.swift; sourceTree = "<group>"; };
-		1B000061 /* ZoomLabelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZoomLabelView.swift; sourceTree = "<group>"; };
-		1B000062 /* ZoomLabelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZoomLabelTests.swift; sourceTree = "<group>"; };
 		1B000070 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		1B000080 /* VideoQualitySettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoQualitySettings.swift; sourceTree = "<group>"; };
 		1B000082 /* VideoQualitySettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoQualitySettingsTests.swift; sourceTree = "<group>"; };
 		1B000090 /* QualitySettingsButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QualitySettingsButton.swift; sourceTree = "<group>"; };
 		1B000091 /* QualitySettingsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QualitySettingsSheet.swift; sourceTree = "<group>"; };
+		1B000094 /* ZoomIndicatorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZoomIndicatorView.swift; sourceTree = "<group>"; };
 		1C000001 /* DualVideo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DualVideo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1C000002 /* DualVideoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DualVideoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -184,9 +184,9 @@
 				1B000042 /* RecordButton.swift */,
 				1B000043 /* RecordingStatusOverlay.swift */,
 				1B000060 /* TorchToggleButton.swift */,
-				1B000061 /* ZoomLabelView.swift */,
 				1B000090 /* QualitySettingsButton.swift */,
 				1B000091 /* QualitySettingsSheet.swift */,
+				1B000094 /* ZoomIndicatorView.swift */,
 			);
 			path = UI;
 			sourceTree = "<group>";
@@ -195,6 +195,7 @@
 			isa = PBXGroup;
 			children = (
 				1B000002 /* AppState.swift */,
+				1B000092 /* GlassBackground.swift */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
@@ -242,7 +243,6 @@
 				1B000045 /* RecordingManagerTests.swift */,
 				1B000051 /* PhotoSaveManagerTests.swift */,
 				1B000052 /* PiPSnapTests.swift */,
-				1B000062 /* ZoomLabelTests.swift */,
 				1B000082 /* VideoQualitySettingsTests.swift */,
 			);
 			path = UnitTests;
@@ -366,10 +366,11 @@
 				1A000043 /* RecordingStatusOverlay.swift in Sources */,
 				1A000050 /* PhotoSaveManager.swift in Sources */,
 				1A000060 /* TorchToggleButton.swift in Sources */,
-				1A000061 /* ZoomLabelView.swift in Sources */,
 				1A000080 /* VideoQualitySettings.swift in Sources */,
 				1A000090 /* QualitySettingsButton.swift in Sources */,
 				1A000091 /* QualitySettingsSheet.swift in Sources */,
+				1A000092 /* GlassBackground.swift in Sources */,
+				1A000094 /* ZoomIndicatorView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -387,7 +388,6 @@
 				1A000045 /* RecordingManagerTests.swift in Sources */,
 				1A000051 /* PhotoSaveManagerTests.swift in Sources */,
 				1A000052 /* PiPSnapTests.swift in Sources */,
-				1A000062 /* ZoomLabelTests.swift in Sources */,
 				1A000082 /* VideoQualitySettingsTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

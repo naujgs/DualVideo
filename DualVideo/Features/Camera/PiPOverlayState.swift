@@ -16,6 +16,11 @@ final class PiPOverlayState {
     /// Inset margin applied on all edges (D-07: safe-area inset margins).
     static let edgeMargin: CGFloat = 12.0
 
+    /// Extra vertical guard — prevents PiP from sitting at the very top or very bottom.
+    /// Top: keeps PiP below the status bar area. Bottom: keeps PiP above the camera controls.
+    static let topGuardMargin: CGFloat = 44.0
+    static let bottomGuardMargin: CGFloat = 80.0
+
     /// Update offset during a drag gesture, with real-time clamping.
     /// - Parameters:
     ///   - translation: Current drag translation from gesture.
@@ -69,8 +74,8 @@ final class PiPOverlayState {
         xAbs = min(max(xAbs, xMin), xMax)
 
         // Vertical clamp
-        let yMin = safeAreaInsets.top + margin
-        let yMax = containerSize.height - safeAreaInsets.bottom - pipSize.height - margin
+        let yMin = safeAreaInsets.top + margin + Self.topGuardMargin
+        let yMax = containerSize.height - safeAreaInsets.bottom - pipSize.height - margin - Self.bottomGuardMargin
         yAbs = min(max(yAbs, yMin), yMax)
 
         // Convert back to offset from anchor
@@ -91,8 +96,8 @@ final class PiPOverlayState {
         let margin = Self.edgeMargin
         let xRight: CGFloat = 0
         let xLeft  = -(containerSize.width - pipSize.width - 2 * margin)
-        let yTop:   CGFloat = 0
-        let yBottom = containerSize.height - safeAreaInsets.top - safeAreaInsets.bottom - pipSize.height - 2 * margin
+        let yTop    = Self.topGuardMargin
+        let yBottom = containerSize.height - safeAreaInsets.top - safeAreaInsets.bottom - pipSize.height - 2 * margin - Self.bottomGuardMargin
 
         let corners: [(index: Int, offset: CGSize)] = [
             (0, CGSize(width: xRight, height: yTop)),
@@ -118,8 +123,8 @@ final class PiPOverlayState {
         let margin = Self.edgeMargin
         let xRight: CGFloat = 0
         let xLeft  = -(containerSize.width - pipSize.width - 2 * margin)
-        let yTop:   CGFloat = 0
-        let yBottom = containerSize.height - safeAreaInsets.top - safeAreaInsets.bottom - pipSize.height - 2 * margin
+        let yTop    = Self.topGuardMargin
+        let yBottom = containerSize.height - safeAreaInsets.top - safeAreaInsets.bottom - pipSize.height - 2 * margin - Self.bottomGuardMargin
 
         let targetOffset: CGSize
         switch index {
