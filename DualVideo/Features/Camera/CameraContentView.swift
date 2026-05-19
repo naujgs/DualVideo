@@ -13,6 +13,7 @@ struct CameraContentView: View {
     @State private var showQualitySettings = false
     @State private var isZoomIndicatorVisible = false
     @State private var zoomHideTask: Task<Void, Never>? = nil
+    @State private var isDraggingZoomBar = false
 
     var body: some View {
         GeometryReader { geo in
@@ -131,7 +132,30 @@ struct CameraContentView: View {
                 if isZoomIndicatorVisible {
                     VStack {
                         Spacer()
-                        ZoomIndicatorView(zoomFactor: cameraManager.backZoomFactor)
+                        ZoomIndicatorView(
+                                zoomFactor: cameraManager.backZoomFactor,
+                                onZoomChanged: { factor in
+                                    cameraManager.setZoom(factor)
+                                    activeZoomBase = factor
+                                },
+                                onDragStarted: {
+                                    isDraggingZoomBar = true
+                                    zoomHideTask?.cancel()
+                                },
+                                onDragEnded: {
+                                    isDraggingZoomBar = false
+                                    zoomHideTask?.cancel()
+                                    zoomHideTask = Task {
+                                        try? await Task.sleep(for: .seconds(2))
+                                        guard !Task.isCancelled else { return }
+                                        await MainActor.run {
+                                            withAnimation(.easeOut(duration: 0.4)) {
+                                                isZoomIndicatorVisible = false
+                                            }
+                                        }
+                                    }
+                                }
+                            )
                             .padding(.leading, 12)
                         Spacer()
                     }
@@ -214,6 +238,7 @@ struct CameraContentView: View {
         }
         .onChange(of: cameraManager.backZoomFactor) { _, _ in
             withAnimation(.easeIn(duration: 0.15)) { isZoomIndicatorVisible = true }
+            guard !isDraggingZoomBar else { return }  // hide timer managed by drag callbacks
             zoomHideTask?.cancel()
             zoomHideTask = Task {
                 try? await Task.sleep(for: .seconds(2))
