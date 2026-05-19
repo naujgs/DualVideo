@@ -1,6 +1,30 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "CFBundleDisplayName" : {
+      "comment" : "Bundle display name",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "DualVideo"
+          }
+        }
+      }
+    },
+    "CFBundleName" : {
+      "comment" : "Bundle name",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "DualVideo"
+          }
+        }
+      }
+    },
     "NSCameraUsageDescription" : {
       "comment" : "Shown in iOS permission prompt when app first requests camera access",
       "extractionState" : "manual",
@@ -13,8 +37,8 @@
         },
         "es" : {
           "stringUnit" : {
-            "state" : "needs_review",
-            "value" : ""
+            "state" : "translated",
+            "value" : "DualVideo usa las cámaras trasera y delantera simultáneamente para grabar un vídeo con imagen dentro de imagen."
           }
         }
       }
@@ -31,8 +55,8 @@
         },
         "es" : {
           "stringUnit" : {
-            "state" : "needs_review",
-            "value" : ""
+            "state" : "translated",
+            "value" : "DualVideo graba audio junto con tu vídeo de doble cámara."
           }
         }
       }
@@ -49,8 +73,8 @@
         },
         "es" : {
           "stringUnit" : {
-            "state" : "needs_review",
-            "value" : ""
+            "state" : "translated",
+            "value" : "DualVideo guarda tus grabaciones directamente en tu Fototeca."
           }
         }
       }
