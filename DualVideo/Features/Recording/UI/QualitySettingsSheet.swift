@@ -37,7 +37,7 @@ struct QualitySettingsSheet: View {
                         OutputResolution.allCases.filter { $0 != .uhd4K || supports4K },
                         id: \.self
                     ) { r in
-                        Text(r.rawValue).tag(r)
+                        Text(verbatim: r.rawValue).tag(r)
                     }
                 }
                 .pickerStyle(.segmented)
@@ -57,7 +57,7 @@ struct QualitySettingsSheet: View {
                     .foregroundStyle(.secondary)
                 Picker("Frame Rate", selection: $settings.frameRate) {
                     ForEach(FrameRatePreset.allCases, id: \.self) { fps in
-                        Text(fps.displayName).tag(fps)
+                        Text(verbatim: fps.displayName).tag(fps)
                     }
                 }
                 .pickerStyle(.segmented)
@@ -92,12 +92,27 @@ struct QualitySettingsSheet: View {
         case .hd1080p: bitrateBytesPerSec = 16_000_000 / 8
         case .uhd4K:   bitrateBytesPerSec = 45_000_000 / 8
         }
-        guard bitrateBytesPerSec > 0, freeBytes > 0 else { return "Storage unavailable" }
-        if freeBytes < 1_000_000_000 { return "Low storage" }
+        guard bitrateBytesPerSec > 0, freeBytes > 0 else {
+            return String(localized: "Storage unavailable",
+                          comment: "Shown when free storage cannot be determined")
+        }
+        if freeBytes < 1_000_000_000 {
+            return String(localized: "Low storage",
+                          comment: "Shown when device has less than 1 GB free storage")
+        }
         let seconds = Int(freeBytes / bitrateBytesPerSec)
         let minutes = seconds / 60
-        if minutes == 0 { return "<1 min remaining" }
-        if minutes < 60 { return "~\(minutes) min remaining" }
-        return "~\(minutes / 60) hr remaining"
+        if minutes == 0 {
+            return String(localized: "<1 min remaining",
+                          comment: "Shown when less than one minute of recording time remains")
+        }
+        if minutes < 60 {
+            let count = Int64(minutes)
+            return String(localized: "~\(count, specifier: "%lld") min remaining",
+                          comment: "Approximate minutes of recording time remaining; count is the number of minutes")
+        }
+        let hours = Int64(minutes / 60)
+        return String(localized: "~\(hours, specifier: "%lld") hr remaining",
+                      comment: "Approximate hours of recording time remaining; count is the number of hours")
     }
 }

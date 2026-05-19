@@ -48,33 +48,6 @@
 
 - [ ] **K4-05**: Quality settings panel displays a live estimate of available recording time at the selected resolution, calculated from current device free storage and the expected bitrate for that resolution.
 
-## v1.4 Requirements — Language / Localization
-
-### Infrastructure Setup
-
-- [ ] **L10N-01**: User sees all app text in their iOS system language (English or Spanish) automatically — no in-app language picker is present.
-- [ ] **L10N-02**: Xcode project lists Spanish (es) and English (en) as supported localizations and `SWIFT_EMIT_LOC_STRINGS = YES` is set in Build Settings.
-- [ ] **L10N-03**: `Localizable.xcstrings` (String Catalog) exists in the project bundle with all UI strings and Spanish translations.
-- [ ] **L10N-04**: `InfoPlist.xcstrings` exists with Spanish translations for all three permission usage descriptions (camera, microphone, Photo Library).
-
-### String Extraction & Code Fixes
-
-- [ ] **L10N-05**: All `Text("literal")` and `Button("literal")` call sites auto-extract into the catalog on build — a manual audit confirms zero strings are missed.
-- [ ] **L10N-06**: `blockedMessage` (PermissionsBlockedView computed `String` property) is converted to `String(localized:)` so it appears in the catalog and localizes correctly.
-- [ ] **L10N-07**: `storageEstimate` (QualitySettingsSheet computed `String` property) is converted to `String(localized:)` so the storage estimate label localizes correctly.
-- [ ] **L10N-08**: Technical labels that must not be translated (fps values "30 FPS"/"60 FPS"/"120 FPS", resolution names "720p"/"1080p"/"4K", elapsed timer "MM:SS") are marked `Text(verbatim:)` to suppress catalog warnings.
-
-### Spanish Translations
-
-- [ ] **L10N-09**: All UI strings have Spanish translations in `Localizable.xcstrings` (~32 strings including alerts, buttons, labels, error messages, quality panel, overlay).
-- [ ] **L10N-10**: Permission usage descriptions have Spanish translations in `InfoPlist.xcstrings`.
-- [ ] **L10N-11**: Storage estimate string includes Spanish plural variants ("1 min restante" vs "N mins restantes").
-
-### Validation
-
-- [ ] **L10N-12**: All app screens (camera view, quality panel, permissions flow, countdown overlay, alerts, error/unsupported-device states) display Spanish when device language is Spanish.
-- [ ] **L10N-13**: App records, saves, and handles errors correctly when running in Spanish — no untranslated (English) strings are visible during a full recording cycle.
-
 ## v2 Requirements
 
 ### Deferred Enhancements
@@ -118,27 +91,13 @@
 | K4-05 | Phase 7 | Pending |
 | K4-03 | Phase 8 | Pending |
 | K4-04 | Phase 8 | Pending |
-| L10N-02 | Phase 9 | Pending |
-| L10N-03 | Phase 9 | Pending |
-| L10N-04 | Phase 9 | Pending |
-| L10N-05 | Phase 9 | Pending |
-| L10N-06 | Phase 9 | Pending |
-| L10N-07 | Phase 9 | Pending |
-| L10N-08 | Phase 9 | Pending |
-| L10N-01 | Phase 10 | Pending |
-| L10N-09 | Phase 10 | Pending |
-| L10N-10 | Phase 10 | Pending |
-| L10N-11 | Phase 10 | Pending |
-| L10N-12 | Phase 11 | Pending |
-| L10N-13 | Phase 11 | Pending |
 
 **Coverage:**
 - v1 requirements: 15 total
 - v1.1 requirements: 5 total
-- v1.4 requirements: 13 total
-- Mapped to phases: 15 (v1) + 5 (v1.1) + 13 (v1.4)
+- Mapped to phases: 15 (v1) + 5 (v1.1)
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-05-16*
-*Last updated: 2026-05-19 — v1.4 traceability added (L10N-01 through L10N-13 mapped to phases 9–11)*
+*Last updated: 2026-05-19 — v1.1 traceability complete (K4-01 through K4-05 mapped to Phase 7 and Phase 8)*

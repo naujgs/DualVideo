@@ -23,7 +23,7 @@ struct RecordingStatusOverlay: View {
                 }
 
             // Elapsed timer MM:SS
-            Text(formattedTime)
+            Text(verbatim: formattedTime)
                 .font(.system(.body, design: .monospaced).bold())
                 .foregroundStyle(Color.white)
         }

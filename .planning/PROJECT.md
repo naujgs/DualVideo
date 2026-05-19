@@ -8,15 +8,14 @@ DualVideo is an iPhone app that records both the front and back cameras simultan
 
 Both cameras record together and the result lands in Photos as a single watchable video — that moment of capture must always work, even if every other feature is rough.
 
-## Current Milestone: v1.4 — Language / Localization
+## Current Milestone: v1.1 — 4K Resolution Support
 
-**Goal:** All user-visible strings display in Spanish or English, automatically following the iOS system language setting — no in-app language picker needed.
+**Goal:** Detect whether the device's back camera supports 4K and offer it as a selectable resolution in the quality settings panel, with the full recording pipeline configured for 3840×2160 output when selected.
 
 **Target features:**
-- Full app localization into Spanish (es) and English (en)
-- All hardcoded strings extracted to `Localizable.strings` (and `Localizable.xcstrings` if using String Catalogs)
-- System language detection via iOS locale — no manual override in settings
-- All UI surfaces covered: alerts, labels, buttons, error messages, quality panel, timer overlay
+- 4K capability detection at session startup via `AVCaptureDevice` format query
+- Conditional UI: 4K option appears in `QualitySettingsSheet` only on supported hardware
+- 4K recording pipeline: `PiPCompositor` and `MovieRecorder` configured for 3840×2160 output
 
 ---
 
@@ -97,4 +96,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-19 — Milestone v1.4 started: Language / Localization*
+*Last updated: 2026-05-19 — Phase 07 complete: 4K capability detection + conditional UI shipped*
