@@ -86,13 +86,25 @@ private struct PermissionsBlockedView: View {
     private var blockedMessage: String {
         switch deniedPermission {
         case "camera":
-            return "DualVideo needs camera access to record video. Please enable Camera access in Settings."
+            return String(
+                localized: "DualVideo needs camera access to record video. Please enable Camera access in Settings.",
+                comment: "Shown when camera permission is denied"
+            )
         case "microphone":
-            return "DualVideo needs microphone access to record audio. Please enable Microphone access in Settings."
+            return String(
+                localized: "DualVideo needs microphone access to record audio. Please enable Microphone access in Settings.",
+                comment: "Shown when microphone permission is denied"
+            )
         case "photos":
-            return "DualVideo needs Photo Library access to save your recordings. Please enable Photos access in Settings."
+            return String(
+                localized: "DualVideo needs Photo Library access to save your recordings. Please enable Photos access in Settings.",
+                comment: "Shown when photo library permission is denied"
+            )
         default:
-            return "DualVideo needs camera, microphone, and Photo Library access to function. Please enable all permissions in Settings."
+            return String(
+                localized: "DualVideo needs camera, microphone, and Photo Library access to function. Please enable all permissions in Settings.",
+                comment: "Shown when an unrecognized permission category is denied"
+            )
         }
     }
 }
