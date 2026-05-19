@@ -86,18 +86,18 @@
 | OUT-02 | Phase 3 | Pending |
 | OUT-03 | Phase 3 | Pending |
 | OUT-04 | Phase 3 | Complete |
-| K4-01 | TBD | Pending |
-| K4-02 | TBD | Pending |
-| K4-03 | TBD | Pending |
-| K4-04 | TBD | Pending |
-| K4-05 | TBD | Pending |
+| K4-01 | Phase 7 | Pending |
+| K4-02 | Phase 7 | Pending |
+| K4-05 | Phase 7 | Pending |
+| K4-03 | Phase 8 | Pending |
+| K4-04 | Phase 8 | Pending |
 
 **Coverage:**
 - v1 requirements: 15 total
 - v1.1 requirements: 5 total
-- Mapped to phases: 15 (v1) + 0 (v1.1, pending roadmap)
-- Unmapped: 5 (v1.1)
+- Mapped to phases: 15 (v1) + 5 (v1.1)
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-05-16*
-*Last updated: 2026-05-19 — v1.1 requirements added (K4-01 through K4-05)*
+*Last updated: 2026-05-19 — v1.1 traceability complete (K4-01 through K4-05 mapped to Phase 7 and Phase 8)*

@@ -12,6 +12,8 @@ Build DualVideo in three phases: establish reliable multi-camera preview and per
 - [x] **Phase 4: Video Quality and Export Options** - Give users control over quality, resolution, bitrate, and trimming.
 - [ ] **Phase 5: UI Polish** - Reorganize camera controls layout and apply glass/material visual style across all controls.
 - [ ] **Phase 6: Compositor Polish** - Apply 12pt rounded corners to the PiP overlay in the saved video compositor output.
+- [ ] **Phase 7: 4K Capability Detection and Conditional UI** - Detect 4K MultiCam viability at session startup and expose 4K as a selectable option only on hardware that passes the trial configuration check.
+- [ ] **Phase 8: 4K Recording Pipeline** - Configure the full recording path for 3840x2160 output: HEVC codec, correct pixel buffer pool, front camera capped at 1080p, PiP coordinate scaling, and hardwareCost revert guard.
 
 ## Phase Details
 
@@ -103,6 +105,29 @@ Plans:
   3. The compositor change does not affect audio sync or file writing reliability.
 **Plans**: TBD
 
+### Phase 7: 4K Capability Detection and Conditional UI
+**Goal**: Users on capable hardware see 4K as a selectable resolution in the quality panel, and users on all other hardware see no 4K option at all.
+**Depends on**: Phase 4
+**Requirements**: K4-01, K4-02, K4-05
+**Success Criteria** (what must be TRUE):
+  1. On iPhone XR (A12), the quality panel contains no 4K option and `CameraManager.supports4K` is false after session startup.
+  2. On a 4K-capable device (A15 Pro or newer), the quality panel shows 4K as a selectable resolution after session startup.
+  3. The quality panel displays a live recording-time estimate (e.g. "~12 min remaining") that updates when the user switches resolution.
+  4. A saved 4K quality setting on a non-4K device silently falls back to 1080p before session start — no crash or error alert.
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 8: 4K Recording Pipeline
+**Goal**: When 4K is selected on a capable device, the app records and saves a valid 3840x2160 HEVC file with the front camera capped at 1080p and no hardware cost overrun.
+**Depends on**: Phase 7
+**Requirements**: K4-03, K4-04
+**Success Criteria** (what must be TRUE):
+  1. A recording started with 4K selected produces a `.mov` file readable in Photos at 3840x2160 resolution.
+  2. Front camera input is confirmed at 1920x1080 (not 4K) when the back camera records at 4K — verifiable via format log at session start.
+  3. `hardwareCost` stays below 1.0 throughout a 5-minute 4K recording; if it would exceed 1.0, the session reverts to 1080p before recording starts (no silent session stop).
+  4. PiP overlay renders correctly positioned in the 4K output frame — no offset to lower-left quadrant.
+**Plans**: TBD
+
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |
@@ -113,3 +138,5 @@ Plans:
 | 4. Video Quality and Export Options | 4/4 | Complete | 2026-05-17 |
 | 5. UI Polish | 0/2 | Not started | — |
 | 6. Compositor Polish | 0/? | Not started | — |
+| 7. 4K Capability Detection and Conditional UI | 0/? | Not started | — |
+| 8. 4K Recording Pipeline | 0/? | Not started | — |

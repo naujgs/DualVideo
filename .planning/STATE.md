@@ -3,11 +3,11 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: 4K Resolution Support
 status: planning
-stopped_at: Milestone v1.1 started — defining requirements
+stopped_at: Roadmap created — Phase 7 and Phase 8 defined
 last_updated: "2026-05-19T00:00:00.000Z"
-last_activity: 2026-05-19 -- Milestone v1.1 started
+last_activity: 2026-05-19 -- Milestone v1.1 roadmap created
 progress:
-  total_phases: 0
+  total_phases: 2
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-05-19)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: Phase 7 — 4K Capability Detection and Conditional UI (not started)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-05-19 — Milestone v1.1 started
+Status: Roadmap approved — ready to plan Phase 7
+Last activity: 2026-05-19 — Milestone v1.1 roadmap created (Phase 7 + Phase 8)
 
 ## Performance Metrics
 
@@ -52,6 +52,10 @@ Decisions are logged in PROJECT.md Key Decisions table.
 - [Phase 03]: syncSessionRunningState() reads session.isRunning on sessionQueue to avoid exposing private session property across module boundaries
 - [Phase 05]: Glass style uses `.glassEffect()` on iOS 26+ and `.ultraThinMaterial` fallback on iOS 18–25; no black-opacity backgrounds remain on controls.
 - [Phase 06]: PiP rounded corners (12pt) applied via CIImage rounded-rect mask in PiPCompositor before CISourceOverCompositing — independent of UI changes.
+- [v1.1 Roadmap]: 4K detection uses trial configuration (not just isMultiCamSupported) — only reliable mechanism to catch combined hardwareCost > 1.0 with front camera active.
+- [v1.1 Roadmap]: Front camera stays at 1080p when back records 4K — ISP bandwidth ceiling; asymmetric configuration is the correct approach.
+- [v1.1 Roadmap]: HEVC required for 4K (not H.264) — use recommendedVideoSettings API to derive bitrate; avoid hardcoded values.
+- [v1.1 Roadmap]: QualitySettingsSheet hides (not disables) 4K option on non-capable hardware — per Apple HIG pattern for hardware-gated features.
 
 ### Pending Todos
 
@@ -59,9 +63,11 @@ None.
 
 ### Blockers/Concerns
 
-None.
+- iPhone XR (A12) is confirmed as non-4K-capable for MultiCam — useful as negative test only.
+- 4K MultiCam support on iPhone 17 Pro Max (A18 Pro) is MEDIUM confidence — requires device validation in Phase 8.
+- If iPhone 17 Pro Max returns supports4K == false, Phase 8 pipeline is untestable until a confirmed 4K-capable device is added. Log full back.formats list at session startup to diagnose.
 
 ## Session Continuity
 
 Last session: 2026-05-19
-Stopped at: Milestone v1.1 initialized
+Stopped at: Milestone v1.1 roadmap created — next step is /gsd-plan-phase 7
