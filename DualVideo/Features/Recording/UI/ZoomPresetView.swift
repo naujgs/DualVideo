@@ -30,14 +30,13 @@ struct ZoomPresetView: View {
             ForEach(presets, id: \.self) { preset in
                 Button(action: { onPresetSelected(preset) }) {
                     Text(presetLabel(preset))
-                        .font(.system(.footnote, design: .monospaced,
-                                      weight: isActive(preset) ? .bold : .regular))
+                        .font(.system(size: 15, weight: isActive(preset) ? .bold : .regular,
+                                      design: .monospaced))
                         .foregroundStyle(isActive(preset) ? Color.yellow : Color.white)
-                        .padding(.horizontal, 28)
-                        .padding(.vertical, 16)
+                        .frame(width: 46, height: 46)
                 }
                 .buttonStyle(.plain)
-                .cameraGlassBackground(in: Capsule())
+                .cameraGlassBackground(in: Circle())
                 .accessibilityLabel(
                     isActive(preset)
                         ? "\(Int(preset))x zoom, selected"
