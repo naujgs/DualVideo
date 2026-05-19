@@ -4,15 +4,20 @@ import SwiftUI
 /// Displayed from CameraContentView via .sheet(isPresented: $showQualitySettings).
 /// Settings are persisted to UserDefaults on sheet dismissal (onDisappear).
 ///
-/// UI-SPEC: presentationDetents([.height(260)]), VStack(spacing: 24), footnote section headers,
+/// UI-SPEC: presentationDetents([.height(320)]), VStack(spacing: 24), footnote section headers,
 /// segmented Picker, caption subtitle "Applies to both cameras".
+/// K4-02: supports4K parameter controls 4K visibility (hide, not disable — Apple HIG).
+/// K4-05: storageEstimate computed property shows recording time remaining.
 struct QualitySettingsSheet: View {
     @Binding var settings: VideoQualitySettings
+    let supports4K: Bool          // K4-02: passed from CameraContentView; hides .uhd4K when false
     let onDismiss: () -> Void
+
+    @State private var freeBytes: Int64 = 0   // K4-05: loaded once in .onAppear
 
     var body: some View {
         VStack(spacing: 24) {
-            // Sheet title + subtitle
+            // Sheet title + subtitle (UNCHANGED from prior implementation)
             VStack(spacing: 4) {
                 Text("Video Quality")
                     .font(.system(.headline))
@@ -22,20 +27,30 @@ struct QualitySettingsSheet: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            // Resolution picker
+            // Resolution picker — K4-02: filter .uhd4K when supports4K == false
             VStack(alignment: .leading, spacing: 8) {
                 Text("Resolution")
                     .font(.system(.footnote, design: .default, weight: .semibold))
                     .foregroundStyle(.secondary)
                 Picker("Resolution", selection: $settings.resolution) {
-                    ForEach(OutputResolution.allCases, id: \.self) { r in
+                    ForEach(
+                        OutputResolution.allCases.filter { $0 != .uhd4K || supports4K },
+                        id: \.self
+                    ) { r in
                         Text(r.rawValue).tag(r)
                     }
                 }
                 .pickerStyle(.segmented)
+
+                // K4-05: Storage estimate label — visible once freeBytes is loaded
+                if freeBytes > 0 {
+                    Text(storageEstimate)
+                        .font(.system(.caption2))
+                        .foregroundStyle(freeBytes < 1_000_000_000 ? .orange : .secondary)
+                }
             }
 
-            // Frame rate picker
+            // Frame rate picker (UNCHANGED)
             VStack(alignment: .leading, spacing: 8) {
                 Text("Frame Rate")
                     .font(.system(.footnote, design: .default, weight: .semibold))
@@ -50,10 +65,39 @@ struct QualitySettingsSheet: View {
         }
         .padding(.horizontal, 24)
         .padding(.vertical, 16)
-        .presentationDetents([.height(260)])
+        .presentationDetents([.height(320)])   // K4-02/K4-05: increased from 260 (RESEARCH.md Pitfall 4)
         .presentationDragIndicator(.visible)
+        .onAppear {
+            // K4-05: query free storage once when sheet appears.
+            // volumeAvailableCapacityForImportantUsage is Apple's recommended API for
+            // user-data writes — accounts for OS reserves. (RESEARCH.md Pattern 4)
+            let url = URL(fileURLWithPath: NSHomeDirectory())
+            let values = try? url.resourceValues(
+                forKeys: [.volumeAvailableCapacityForImportantUsageKey])
+            freeBytes = values?.volumeAvailableCapacityForImportantUsage ?? 0
+        }
         .onDisappear {
             onDismiss()
         }
+    }
+
+    // K4-05: Computed property — re-evaluates whenever settings.resolution changes
+    // (SwiftUI re-renders body on @Binding change, which re-evaluates this property).
+    // Bitrate constants: 720p=8Mbps H.264, 1080p=16Mbps H.264, 4K=45Mbps HEVC.
+    // (RESEARCH.md Pattern 4 — exact code from instructions)
+    private var storageEstimate: String {
+        let bitrateBytesPerSec: Int64
+        switch settings.resolution {
+        case .hd720p:  bitrateBytesPerSec = 8_000_000 / 8
+        case .hd1080p: bitrateBytesPerSec = 16_000_000 / 8
+        case .uhd4K:   bitrateBytesPerSec = 45_000_000 / 8
+        }
+        guard bitrateBytesPerSec > 0, freeBytes > 0 else { return "Storage unavailable" }
+        if freeBytes < 1_000_000_000 { return "Low storage" }
+        let seconds = Int(freeBytes / bitrateBytesPerSec)
+        let minutes = seconds / 60
+        if minutes == 0 { return "<1 min remaining" }
+        if minutes < 60 { return "~\(minutes) min remaining" }
+        return "~\(minutes / 60) hr remaining"
     }
 }
