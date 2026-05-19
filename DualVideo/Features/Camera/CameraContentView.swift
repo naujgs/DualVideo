@@ -243,6 +243,18 @@ struct CameraContentView: View {
                 }
             }
         }
+        // K4-02/Pattern 5: If the device is not 4K-capable and the user has a saved .uhd4K
+        // setting (e.g. from a prior device restore), silently downgrade to .hd1080p.
+        // Fires once at session startup when supports4K transitions from initial false to its
+        // final value. On capable hardware, supports4K becomes true and the guard is a no-op.
+        // On non-capable hardware, supports4K stays false; downgrade triggers if needed.
+        // (RESEARCH.md Pattern 5 — safe: guard condition prevents double-write on capable device)
+        .onChange(of: appState.cameraManager.supports4K) { _, supports4K in
+            if !supports4K && appState.qualitySettings.resolution == .uhd4K {
+                appState.qualitySettings.resolution = .hd1080p
+                appState.qualitySettings.save()
+            }
+        }
         // Save-failure alert: shown when saveResult is .failure (OUT-02, DEV-03)
         .alert(
             "Save Failed",
@@ -282,6 +294,7 @@ struct CameraContentView: View {
                     get: { appState.qualitySettings },
                     set: { appState.qualitySettings = $0 }
                 ),
+                supports4K: appState.cameraManager.supports4K,   // K4-02: hides .uhd4K on non-capable hardware
                 onDismiss: {
                     appState.qualitySettings.save()
                     // Apply updated resolution and frame rate to both cameras
