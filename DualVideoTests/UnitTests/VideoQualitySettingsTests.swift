@@ -22,6 +22,26 @@ struct OutputResolutionTests {
     @Test func hd1080pHeight() {
         #expect(OutputResolution.hd1080p.height == 1920)
     }
+
+    @Test func uhd4KRawValue() {
+        #expect(OutputResolution.uhd4K.rawValue == "4K")
+    }
+
+    @Test func uhd4KWidth() {
+        #expect(OutputResolution.uhd4K.width == 2160)
+    }
+
+    @Test func uhd4KHeight() {
+        #expect(OutputResolution.uhd4K.height == 3840)
+    }
+
+    @Test func uhd4KLandscapeWidth() {
+        #expect(OutputResolution.uhd4K.landscapeWidth == 3840)
+    }
+
+    @Test func allCasesCountIsThree() {
+        #expect(OutputResolution.allCases.count == 3)
+    }
 }
 
 // MARK: - FrameRatePreset Tests
@@ -124,5 +144,27 @@ struct VideoQualitySettingsTests {
         // Verify the dedicated key was written
         let rawValue = UserDefaults.standard.integer(forKey: VideoQualitySettings.frameRateDefaultsKey)
         #expect(rawValue == 60)
+    }
+
+    @Test func uhd4KRoundTrip() {
+        cleanDefaults()
+        defer { cleanDefaults() }
+        var settings = VideoQualitySettings()
+        settings.resolution = .uhd4K
+        settings.save()
+        let loaded = VideoQualitySettings.load()
+        #expect(loaded.resolution == .uhd4K)
+    }
+
+    @Test func unknownResolutionRawValueFallsBackToDefault() {
+        // Simulate a JSON blob with an unrecognized resolution raw value
+        cleanDefaults()
+        defer { cleanDefaults() }
+        // Write a JSON blob with a resolution key not in the enum
+        let json = #"{"resolution":"UNKNOWN","frameRate":30}"#
+        UserDefaults.standard.set(json.data(using: .utf8), forKey: VideoQualitySettings.defaultsKey)
+        let loaded = VideoQualitySettings.load()
+        // Codable will fail to decode, triggering the VideoQualitySettings() default
+        #expect(loaded.resolution == .hd1080p)
     }
 }
