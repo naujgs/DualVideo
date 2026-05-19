@@ -7,20 +7,23 @@ import Foundation
 enum OutputResolution: String, Codable, CaseIterable, Sendable {
     case hd720p  = "720p"
     case hd1080p = "1080p"
+    case uhd4K   = "4K"          // Phase 7 (K4-02)
 
-    /// Portrait width (short side).
+    /// Portrait width (short side). For 4K: 2160 is the short side when held portrait.
     var width: Int {
         switch self {
         case .hd720p:  return 720
         case .hd1080p: return 1080
+        case .uhd4K:   return 2160
         }
     }
 
-    /// Portrait height (long side).
+    /// Portrait height (long side). For 4K: 3840 is the long side when held portrait.
     var height: Int {
         switch self {
         case .hd720p:  return 1280
         case .hd1080p: return 1920
+        case .uhd4K:   return 3840
         }
     }
 
@@ -28,10 +31,12 @@ enum OutputResolution: String, Codable, CaseIterable, Sendable {
     /// Camera sensor formats are expressed in landscape (width > height).
     /// For 720p  → filter dims.width == 1280
     /// For 1080p → filter dims.width == 1920
+    /// For 4K    → filter dims.width == 3840
     var landscapeWidth: Int {
         switch self {
         case .hd720p:  return 1280
         case .hd1080p: return 1920
+        case .uhd4K:   return 3840
         }
     }
 }

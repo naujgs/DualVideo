@@ -49,7 +49,7 @@ final class RecordingManagerTests: XCTestCase {
         let compositor = PiPCompositor()
         manager.wireCompositor(compositor)
 
-        let settings = VideoQualitySettings(resolution: .hd720p, bitrate: .low)
+        let settings = VideoQualitySettings(resolution: .hd720p)
         manager.startRecording(settings: settings)
 
         XCTAssertEqual(compositor.outputWidth, 720,

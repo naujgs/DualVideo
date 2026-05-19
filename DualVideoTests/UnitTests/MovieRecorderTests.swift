@@ -83,7 +83,7 @@ final class MovieRecorderTests: XCTestCase {
     /// startRecording(settings:) with 720p/low must set adaptor dimensions to 720×1280
     func testStartRecordingWith720pLowCreatesWith720x1280Adaptor() {
         let recorder = MovieRecorder()
-        let settings = VideoQualitySettings(resolution: .hd720p, bitrate: .low)
+        let settings = VideoQualitySettings(resolution: .hd720p)
         recorder.startRecording(settings: settings)
 
         guard let adaptor = recorder.adaptor else {
@@ -91,7 +91,7 @@ final class MovieRecorderTests: XCTestCase {
             return
         }
         let pool = adaptor.pixelBufferPool
-        XCTAssertNotNil(pool, "pixelBufferPool must exist after startRecording with 720p/low")
+        XCTAssertNotNil(pool, "pixelBufferPool must exist after startRecording with 720p")
 
         // Verify the pool was created with 720×1280 by creating a buffer and checking dimensions
         var buf: CVPixelBuffer?
@@ -110,7 +110,7 @@ final class MovieRecorderTests: XCTestCase {
     /// startRecording(settings:) with 1080p/high must set adaptor dimensions to 1080×1920
     func testStartRecordingWith1080pHighCreatesWith1080x1920Adaptor() {
         let recorder = MovieRecorder()
-        let settings = VideoQualitySettings(resolution: .hd1080p, bitrate: .high)
+        let settings = VideoQualitySettings(resolution: .hd1080p)
         recorder.startRecording(settings: settings)
 
         guard let adaptor = recorder.adaptor else {
@@ -118,7 +118,7 @@ final class MovieRecorderTests: XCTestCase {
             return
         }
         let pool = adaptor.pixelBufferPool
-        XCTAssertNotNil(pool, "pixelBufferPool must exist after startRecording with 1080p/high")
+        XCTAssertNotNil(pool, "pixelBufferPool must exist after startRecording with 1080p")
 
         var buf: CVPixelBuffer?
         let status = CVPixelBufferPoolCreatePixelBuffer(kCFAllocatorDefault, pool!, &buf)
