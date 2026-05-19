@@ -141,7 +141,11 @@ Plans:
   3. A build produces no "missing translation" warnings for English strings — all `Text("literal")` and `Button("literal")` call sites appear in the catalog.
   4. `blockedMessage` and `storageEstimate` computed properties use `String(localized:)` and their keys appear in the catalog.
   5. Technical labels (fps values, resolution names, elapsed timer) are marked `Text(verbatim:)` and do not appear as untranslated entries in the catalog.
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 09-01-PLAN.md — Add es to knownRegions in project.pbxproj, create Localizable.xcstrings with all 23 UI string keys, create InfoPlist.xcstrings with 3 permission description keys (L10N-02, L10N-03, L10N-04, L10N-05)
+- [ ] 09-02-PLAN.md — Convert blockedMessage to String(localized:comment:), convert storageEstimate to String(localized:) with interpolation, mark picker items and elapsed timer Text(verbatim:) (L10N-06, L10N-07, L10N-08)
 
 ### Phase 10: Spanish Translations
 **Goal**: Every user-visible string in the app has a correct Spanish translation in the appropriate catalog, including permission descriptions and plural-sensitive storage estimates.
@@ -177,6 +181,6 @@ Plans:
 | 6. Compositor Polish | 0/? | Not started | — |
 | 7. 4K Capability Detection and Conditional UI | 0/? | Not started | — |
 | 8. 4K Recording Pipeline | 0/? | Not started | — |
-| 9. Localization Infrastructure and Code Fixes | 0/? | Not started | — |
+| 9. Localization Infrastructure and Code Fixes | 0/2 | Not started | — |
 | 10. Spanish Translations | 0/? | Not started | — |
 | 11. Localization Validation | 0/? | Not started | — |
