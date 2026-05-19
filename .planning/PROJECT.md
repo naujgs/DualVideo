@@ -31,6 +31,11 @@ Both cameras record together and the result lands in Photos as a single watchabl
 
 ### Active
 
+- [x] 4K capability detection at session startup via `AVCaptureDevice` format query — Validated in Phase 07: 4k-capability-detection-and-conditional-ui
+- [x] Conditional UI: 4K option appears in `QualitySettingsSheet` only on supported hardware (MultiCam-capable 4K formats) — Validated in Phase 07
+- [x] Live storage estimate label in `QualitySettingsSheet` (time remaining at selected bitrate) — Validated in Phase 07
+- [ ] Per-camera quality settings (back and front configured independently via tabbed UI)
+- [ ] 4K recording pipeline: `PiPCompositor` and `MovieRecorder` configured for 3840×2160 output
 - [ ] Single master Record / Stop button starts and stops both cameras in sync
 - [ ] Combined PiP layout is captured into a single 1080p .mov / .mp4 file saved to Photos
 - [ ] Audio is mixed from both front and back microphones into the recorded file
@@ -91,4 +96,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-19 — Milestone v1.1 started: 4K resolution support (hardware-gated)*
+*Last updated: 2026-05-19 — Phase 07 complete: 4K capability detection + conditional UI shipped*
