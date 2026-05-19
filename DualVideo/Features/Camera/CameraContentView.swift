@@ -130,37 +130,32 @@ struct CameraContentView: View {
 
                 // Left-side zoom indicator — appears during pinch zoom, auto-hides
                 if isZoomIndicatorVisible {
-                    VStack {
-                        Spacer()
-                        ZoomIndicatorView(
-                                zoomFactor: cameraManager.backZoomFactor,
-                                onZoomChanged: { factor in
-                                    cameraManager.setZoom(factor)
-                                    activeZoomBase = factor
-                                },
-                                onDragStarted: {
-                                    isDraggingZoomBar = true
-                                    zoomHideTask?.cancel()
-                                },
-                                onDragEnded: {
-                                    isDraggingZoomBar = false
-                                    zoomHideTask?.cancel()
-                                    zoomHideTask = Task {
-                                        try? await Task.sleep(for: .seconds(2))
-                                        guard !Task.isCancelled else { return }
-                                        await MainActor.run {
-                                            withAnimation(.easeOut(duration: 0.4)) {
-                                                isZoomIndicatorVisible = false
-                                            }
-                                        }
+                    ZoomIndicatorView(
+                        zoomFactor: cameraManager.backZoomFactor,
+                        onZoomChanged: { factor in
+                            cameraManager.setZoom(factor)
+                            activeZoomBase = factor
+                        },
+                        onDragStarted: {
+                            isDraggingZoomBar = true
+                            zoomHideTask?.cancel()
+                        },
+                        onDragEnded: {
+                            isDraggingZoomBar = false
+                            zoomHideTask?.cancel()
+                            zoomHideTask = Task {
+                                try? await Task.sleep(for: .seconds(2))
+                                guard !Task.isCancelled else { return }
+                                await MainActor.run {
+                                    withAnimation(.easeOut(duration: 0.4)) {
+                                        isZoomIndicatorVisible = false
                                     }
                                 }
-                            )
-                            .padding(.leading, 12)
-                        Spacer()
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .allowsHitTesting(false)
+                            }
+                        }
+                    )
+                    .padding(.leading, 12)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
                     .transition(.opacity)
                 }
 
