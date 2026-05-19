@@ -90,7 +90,7 @@ Plans:
 **UI hint**: yes
 
 Plans:
-- [ ] 05-01-PLAN.md — GlassBackground.swift shared modifier + ZoomPresetView (replaces ZoomLabelView), three tappable glass capsule buttons (GLASS-01, GLASS-02, LAYOUT-01)
+- [x] 05-01-PLAN.md — GlassBackground.swift shared modifier + ZoomPresetView (replaces ZoomLabelView), three tappable glass capsule buttons (GLASS-01, GLASS-02, LAYOUT-01)
 - [ ] 05-02-PLAN.md — CameraContentView layout restructure + TorchToggleButton/QualitySettingsButton glass + sheet glass + human-verify checkpoint (LAYOUT-01, LAYOUT-02, GLASS-01, GLASS-02, GLASS-03)
 
 ### Phase 6: Compositor Polish

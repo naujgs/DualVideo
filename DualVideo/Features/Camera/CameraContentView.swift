@@ -11,6 +11,8 @@ struct CameraContentView: View {
     @State private var activeZoomBase: CGFloat = 1.0  // zoom at gesture start
     @State private var safeAreaInsets: EdgeInsets = .init()
     @State private var showQualitySettings = false
+    @State private var isZoomIndicatorVisible = false
+    @State private var zoomHideTask: Task<Void, Never>? = nil
 
     var body: some View {
         GeometryReader { geo in
@@ -125,16 +127,22 @@ struct CameraContentView: View {
                     }
                 }
 
-                // Bottom-center: Zoom presets above record button (LAYOUT-01)
+                // Left-side zoom indicator — appears during pinch zoom, auto-hides
+                if isZoomIndicatorVisible {
+                    VStack {
+                        Spacer()
+                        ZoomIndicatorView(zoomFactor: cameraManager.backZoomFactor)
+                            .padding(.leading, 12)
+                        Spacer()
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .allowsHitTesting(false)
+                    .transition(.opacity)
+                }
+
+                // Bottom-center: Record button
                 VStack(spacing: 12) {
                     Spacer()
-                    ZoomPresetView(
-                        currentZoom: cameraManager.backZoomFactor,
-                        onPresetSelected: { factor in
-                            cameraManager.setZoom(factor)
-                            activeZoomBase = factor  // CRITICAL: sync pinch baseline (RESEARCH.md Pitfall 1)
-                        }
-                    )
                     // Transient success banner: appears 2.5s after successful save (OUT-02)
                     if case .success = recordingManager.saveResult {
                         Text("Saved to Photos")
@@ -202,6 +210,17 @@ struct CameraContentView: View {
         .onChange(of: pipState.offset) { _, newOffset in
             Task { @MainActor in
                 cameraManager.compositor?.updatePiPOffset(newOffset)
+            }
+        }
+        .onChange(of: cameraManager.backZoomFactor) { _, _ in
+            withAnimation(.easeIn(duration: 0.15)) { isZoomIndicatorVisible = true }
+            zoomHideTask?.cancel()
+            zoomHideTask = Task {
+                try? await Task.sleep(for: .seconds(2))
+                guard !Task.isCancelled else { return }
+                await MainActor.run {
+                    withAnimation(.easeOut(duration: 0.4)) { isZoomIndicatorVisible = false }
+                }
             }
         }
         // Save-failure alert: shown when saveResult is .failure (OUT-02, DEV-03)
