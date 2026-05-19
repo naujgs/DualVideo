@@ -322,6 +322,282 @@ After manually setting `device.activeFormat`, the session's effective preset bec
 
 ---
 
+## v1.1 Pitfalls — Adding 4K to the Existing MultiCam Pipeline
+
+**Researched:** 2026-05-19
+**Scope:** Mistakes specific to upgrading an existing AVCaptureMultiCamSession + PiPCompositor + AVAssetWriter app from 1080p to optional 4K (3840×2160) back-camera recording.
+
+---
+
+### 14. 4K + Front Camera Simultaneously Will Almost Always Exceed hardwareCost on Non-Pro Hardware
+
+**Risk level:** Critical
+
+This is the central constraint for v1.1. The ISP bandwidth budget does not scale with chip generation in the way most developers expect. The issue is not whether the *device* can record 4K — iPhone XR can record 4K fine in the stock Camera app, using a single-camera session. The issue is whether it can do so *simultaneously* with a front-camera feed in an `AVCaptureMultiCamSession`.
+
+The WWDC 2019 session 249 transcript makes this explicit: the maximum supported MultiCam resolution was **1920×1440** for unbinned formats on the initial A12 implementation. A 4K (3840×2160) format carries roughly **4× the ISP bandwidth** of 1080p. Combining a 4K back camera with any front camera format on A12 will almost certainly push `session.hardwareCost` above 1.0, causing the session to stop at runtime with a hardware cost overage notification.
+
+On newer SoCs (A15 Pro and later, specifically iPhone 13 Pro+, 14 Pro+, 15 Pro+, 16 Pro+, 17 Pro+), Apple has expanded MultiCam headroom. Whether a specific device can sustain 4K back + any front camera resolution is device-model-specific and must be tested at runtime — it cannot be assumed based on chip generation alone.
+
+**The key trap:** A developer tests on iPhone 17 Pro Max (sufficient headroom), ships the feature, and iPhone XR (and perhaps iPhone 14 non-Pro) users get a runtime session-stopped error during recording with no graceful fallback.
+
+**Warning signs:** `session.hardwareCost >= 1.0` after `commitConfiguration()`; session stops immediately after `startRunning()` with `AVCaptureSessionRuntimeErrorNotification` and reason `.hardwareCostExceeded`; session appears to start but fires the error within milliseconds.
+
+**Prevention:**
+1. After committing a 4K back + front camera configuration, read `session.hardwareCost` before calling `startRunning()`. If >= 0.95, abort the 4K path and fall back.
+2. Implement a graduated front-camera degradation ladder:
+   - Try: 4K back + 720p front (binned)
+   - If hardwareCost >= 0.95: Try 4K back + 480p front (binned)
+   - If hardwareCost still >= 0.95: Disable front camera entirely for 4K recording
+3. Treat 4K as a "back camera only" feature on A12/A13 devices. The front camera PiP must be removed from the compositor output when hardware budget cannot accommodate it.
+4. Never assume: always validate `hardwareCost` on each device model the first time a 4K configuration is attempted. Cache the result per device model for subsequent sessions.
+
+**Phase:** v1.1 Phase 1 — capability detection and session configuration.
+
+---
+
+### 15. 4K Format Might Not Have isMultiCamSupported = true
+
+**Risk level:** High
+
+`AVCaptureDeviceFormat` has an `isMultiCamSupported` property. Apple explicitly whitelists formats that can participate in a MultiCam session. The whitelisted set was originally limited to binned formats up to 1920×1440 and the 1920×1080 unbinned format. Whether any 4K format on a given device model returns `isMultiCamSupported = true` is device- and iOS-version-dependent and is not documented with a clear compatibility matrix.
+
+The practical failure mode: you query for a 3840×2160 format, find it in `device.formats`, and attempt to set `device.activeFormat` to it inside a MultiCam session configuration. The session commits without error, but `session.hardwareCost` immediately reports >= 1.0, or the session stops at runtime. Alternatively, on devices where 4K MultiCam *is* whitelisted, `isMultiCamSupported` returns `true` and the session runs.
+
+**Warning signs:** Session commits cleanly but `hardwareCost` is already 1.0 after a single device's format is applied; no explicit API error during configuration; failure only surfaces at `startRunning()` time.
+
+**Prevention:**
+- When enumerating formats for 4K selection, filter by **both** conditions:
+  ```swift
+  device.formats.filter { format in
+      let desc = format.formatDescription
+      let dims = CMVideoFormatDescriptionGetDimensions(desc)
+      let is4K = dims.width == 3840 && dims.height == 2160
+      return is4K && format.isMultiCamSupported
+  }
+  ```
+- If the filtered list is empty on the current device, 4K is not available in a MultiCam session. Surface this to the user as "4K not supported on this device in dual-camera mode" rather than attempting to run and failing.
+- Do not rely on `AVCaptureSessionPreset3840x2160` — presets are silently ignored by `AVCaptureMultiCamSession`. Only `activeFormat` assignment matters.
+
+**Phase:** v1.1 Phase 1 — format discovery and capability detection.
+
+---
+
+### 16. sessionPreset = .hd3840x2160 Breaks the MultiCam Session
+
+**Risk level:** High
+
+A common shortcut in single-camera apps is `session.sessionPreset = .hd3840x2160`. This works on `AVCaptureSession` but **does nothing useful and can corrupt the configuration on `AVCaptureMultiCamSession`**. The multi-cam session ignores preset changes or, in some configurations, sets the device's `activeFormat` to a 4K format that has `isMultiCamSupported = false`, producing:
+
+> "The camera's active format is unsupported by this session."
+
+This error appears when `AVCaptureDeviceInput` is added after the preset is set. The session may appear to configure without error but then fails when `startRunning()` is called, or it may throw during `addInput`.
+
+**Warning signs:** `"The camera's active format is unsupported by this session"` in console; session fails to start after a preset change; `device.activeFormat.isMultiCamSupported` is false after committing configuration.
+
+**Prevention:**
+- Never set `sessionPreset` on `AVCaptureMultiCamSession`. The correct approach is always explicit `device.activeFormat` assignment.
+- After committing any configuration, assert `device.activeFormat.isMultiCamSupported == true` in debug builds.
+- The existing v1.0 architecture already avoids presets (Pitfall #13 above). Adding 4K must follow the same pattern: enumerate formats, filter by `isMultiCamSupported && dimensions == 3840×2160`, set `activeFormat` directly.
+
+**Phase:** v1.1 Phase 1 — session reconfiguration for 4K.
+
+---
+
+### 17. CVPixelBufferPool Undersized for 4K Output Buffers
+
+**Risk level:** High
+
+The `AVAssetWriterInputPixelBufferAdaptor` creates an internal `CVPixelBufferPool` sized for the output dimensions specified in `sourcePixelBufferAttributes`. In the existing 1080p pipeline, the pool was configured for 1920×1080 buffers. Switching to 4K without updating `sourcePixelBufferAttributes` means either:
+
+- **Wrong dimensions:** The pool still allocates 1080p-sized buffers. When the compositor tries to render a 3840×2160 frame into a pool buffer, the dimensions mismatch causes a silent render failure or a crash in the pixel buffer backing store.
+- **Too few buffers:** 4K buffers are ~4× larger (approximately 32 MB each in 420YpCbCr8BiPlanarFullRange). The default pool depth (typically 3-5 buffers) stays the same, but the per-buffer GPU transfer time is longer. If the compositor or encoder is slightly slow, the pool drains and `CVPixelBufferPoolCreatePixelBuffer` returns `kCVReturnWouldExceedAllocationThreshold`.
+
+**Warning signs:** Compositor produces black frames; `CVPixelBufferPoolCreatePixelBuffer` returns a non-zero error code; `didDrop` fires immediately on recording start; memory usage spikes disproportionately at start of 4K recording.
+
+**Prevention:**
+- When switching to 4K, tear down and recreate both `MovieRecorder` and its `AVAssetWriterInputPixelBufferAdaptor` with updated `sourcePixelBufferAttributes`:
+  ```swift
+  let pixelBufferAttributes: [String: Any] = [
+      kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarFullRange,
+      kCVPixelBufferWidthKey as String: 3840,
+      kCVPixelBufferHeightKey as String: 2160,
+      kCVPixelBufferIOSurfacePropertiesKey as String: [:]
+  ]
+  ```
+- Do not attempt to resize or reuse a pool configured for a different resolution. Recreate from scratch.
+- Set `kCVPixelBufferPoolMinimumBufferCountKey` to at least 3 for 4K to ensure the pool does not starve under normal compositing latency.
+- Always allocate output buffers from `adaptor.pixelBufferPool` — never create `CVPixelBuffer` instances ad hoc per frame. Pool reuse is critical at 4K frame sizes.
+
+**Phase:** v1.1 — MovieRecorder reconfiguration.
+
+---
+
+### 18. Core Image Compositor Performance Degrades Non-Linearly at 4K
+
+**Risk level:** High
+
+The existing `PiPCompositor` uses `CISourceOverCompositing` to blend front-camera frames over back-camera frames. At 1080p (2,073,600 pixels per frame at 30fps = ~62 million pixels/second), Core Image runs comfortably within the 33ms frame budget on A12. At 4K (8,294,400 pixels per frame at 30fps = ~249 million pixels/second), the pixel throughput is 4× higher. On A12 this will exceed the frame budget, causing dropped frames during compositing.
+
+There are two additional non-obvious traps specific to the existing architecture:
+
+**18a. CIContext created per frame**
+If `PiPCompositor` instantiates a new `CIContext` for each call to `mix(back:front:pipFrame:)`, the overhead at 4K will cause severe frame drops. `CIContext` initialization is expensive regardless of resolution; at 4K the initialization cost relative to frame budget increases.
+
+**18b. Intermediate caching enabled (default)**
+By default, `CIContext` caches intermediate render results. For video, where every frame differs, this cache consumes memory without benefit. At 4K, each cached intermediate is ~8–32 MB. After a few frames, memory pressure causes evictions that stall the render pipeline.
+
+**18c. CPU fallback path**
+If the `CIContext` is initialized without an explicit Metal device, Core Image may fall back to CPU rendering for certain filter graphs. At 4K this is catastrophically slow — CPU rendering of an 8MP frame is an order of magnitude slower than GPU.
+
+**Warning signs:** Frame rate drops from 30fps to 10-15fps at start of 4K recording; Instruments GPU timeline shows idle periods between frames; memory footprint climbs steadily during recording; Instruments Time Profiler shows Core Image work on the main thread or CPU.
+
+**Prevention:**
+1. Ensure the `CIContext` is created **once** (in `PiPCompositor.init`) and reused for every frame. If the context is not already a singleton, fix this before enabling 4K.
+2. Create the context with caching disabled and an explicit Metal device:
+   ```swift
+   let device = MTLCreateSystemDefaultDevice()!
+   let context = CIContext(mtlDevice: device, options: [
+       .cacheIntermediates: false,
+       .name: "PiPCompositor"
+   ])
+   ```
+3. Consider replacing `CISourceOverCompositing` with a custom Metal shader for 4K. Metal compute shaders run significantly faster than Core Image's generic filter graph at high resolutions because they avoid the Core Image graph compilation overhead and can be tuned for the specific PiP blend operation.
+4. At 4K, reducing the composited front-camera overlay to a smaller fraction of the frame (the PiP is already small) provides minimal CPU savings because the back-camera background still dominates the pixel budget. The optimization is in the render pipeline, not the overlay size.
+
+**Phase:** v1.1 — PiPCompositor upgrade. Benchmark on iPhone XR before declaring 4K viable.
+
+---
+
+### 19. AVAssetWriter Video Settings Must Be Updated for 4K HEVC
+
+**Risk level:** Medium
+
+The existing `MovieRecorder` configures `AVAssetWriterInput` with video settings appropriate for 1080p H.264 (or HEVC). These settings hardcode the output dimensions. If the settings are not updated when switching to 4K, one of two silent failures occurs:
+
+- **Dimension mismatch:** The writer encodes at 1080p even though pixel buffers contain 4K content. The encoder silently rescales, producing a 1080p file labeled as 4K in metadata, or it crashes with a dimension assertion.
+- **Wrong codec:** H.264 is not practical for 4K recording due to bitrate requirements. At 4K30, H.264 needs ~45–60 Mbps for comparable quality to what HEVC achieves at ~25–30 Mbps. The resulting file is larger and encoding is slower, potentially causing encoder backpressure.
+
+**Prevention:**
+- Use `AVCaptureVideoDataOutput.recommendedVideoSettings(forVideoCodecType: .hevc, assetWriterOutputFileType: .mov)` to get Apple-recommended settings, then override the width and height:
+  ```swift
+  var settings = videoDataOutput.recommendedVideoSettings(
+      forVideoCodecType: .hevc,
+      assetWriterOutputFileType: .mov
+  ) ?? [:]
+  settings[AVVideoWidthKey] = 3840
+  settings[AVVideoHeightKey] = 2160
+  ```
+- Never hardcode `AVVideoWidthKey` / `AVVideoHeightKey` to 1920/1080 in a code path that may also serve 4K. Parameterize them from the selected resolution.
+- Verify `assetWriter.inputs.first?.outputSettings` after setup to confirm dimensions match the expected output.
+- HEVC hardware encoding is available on A9+ for the specific encode profiles used by the camera pipeline. On A12 it is fully hardware-accelerated. Do not use H.264 for 4K output.
+
+**Phase:** v1.1 — MovieRecorder settings parameterization.
+
+---
+
+### 20. Devices Supporting MultiCam But Not 4K in MultiCam Mode
+
+**Risk level:** Medium
+
+The set of devices that support `AVCaptureMultiCamSession` and the set that support 4K in a MultiCam session are not identical. This creates a specific failure class:
+
+- `AVCaptureMultiCamSession.isMultiCamSupported` → `true` (device supports multi-cam, A12+)
+- No 4K back-camera format has `isMultiCamSupported = true` (device cannot sustain 4K ISP bandwidth simultaneously)
+- OR: A 4K format has `isMultiCamSupported = true` but `session.hardwareCost` after configuration >= 1.0 when combined with any front camera format
+
+Known category of devices in this situation: **iPhone XR, XS, XS Max** (A12) and likely **iPhone 11 series** (A13) — all can record 4K in single-camera mode but likely cannot in a MultiCam session with a front camera active. The primary test device (iPhone XR) falls squarely in this category.
+
+**The trap for this project specifically:** The developer will test 4K on iPhone 17 Pro Max (plenty of headroom) and ship it. The QualitySettingsSheet shows a 4K option (because the back camera *can* do 4K), the user selects it, recording starts, and the session stops after a fraction of a second with a hardware cost error. The user has no 4K file and no clear error message.
+
+**Prevention:**
+1. The 4K capability detection must test the *combined* configuration, not just the back camera in isolation:
+   ```swift
+   // Wrong: asks if back camera can do 4K in single-camera use
+   let can4K = backCamera.formats.contains { 
+       CMVideoFormatDescriptionGetDimensions($0.formatDescription).width == 3840 
+   }
+   
+   // Correct: asks if back camera can do 4K inside this MultiCam session
+   let can4KMultiCam = backCamera.formats.contains {
+       let dims = CMVideoFormatDescriptionGetDimensions($0.formatDescription)
+       return dims.width == 3840 && $0.isMultiCamSupported
+   }
+   ```
+2. Even after passing `isMultiCamSupported`, do a trial configuration:
+   - `beginConfiguration()`
+   - Set back camera to 4K format
+   - Set front camera to its lowest-cost binned format
+   - `commitConfiguration()`
+   - Check `session.hardwareCost`
+   - If >= 0.95, mark 4K as unavailable and revert to 1080p configuration
+3. Perform this trial at app startup (or first settings-panel open) so the UI reflects actual capability, not theoretical hardware support.
+4. The `QualitySettingsSheet` must only present 4K as an option if the trial configuration succeeded on the current device.
+
+**Phase:** v1.1 Phase 1 — capability detection at startup.
+
+---
+
+### 21. systemPressureCost Exceeds Safe Range During Long 4K Recordings
+
+**Risk level:** Medium
+
+`AVCaptureMultiCamSession.systemPressureCost` measures thermal and power load independently of ISP bandwidth. Even if `hardwareCost` is under 1.0, a 4K recording session sustains significantly higher power draw than 1080p, causing device temperature to rise. At `systemPressureCost` between 1.0 and 2.0, the session can run for ~15 minutes before the OS terminates it. Above 3.0, it terminates within seconds.
+
+For a dual-camera PiP recording app, the compounding loads are:
+- ISP processing two camera streams
+- GPU compositing 4K frames at 30fps
+- HEVC hardware encoder running at 4K
+- Display rendering the live preview
+- Audio capture
+
+On iPhone XR this combination sustains a much higher thermal load than on A16/A17 chips which have more efficient ISPs and encoders.
+
+**Warning signs:** `session.systemPressureCost` rises during long recordings; `AVCaptureSessionRuntimeErrorNotification` fires with `.systemPressureStateRestrictingCapturePerformance` reason; device becomes warm during recording; recording stops at approximately 10–15 minutes with no user action.
+
+**Prevention:**
+1. Observe `AVCaptureDevice.SystemPressureState` notifications:
+   ```swift
+   NotificationCenter.default.addObserver(
+       forName: .AVCaptureDeviceSubjectAreaDidChange, ...
+   )
+   // Also observe session runtime errors for pressure-related stops
+   ```
+2. When `systemPressureCost` rises above 1.5, proactively reduce frame rate:
+   ```swift
+   device.activeVideoMinFrameDuration = CMTime(value: 1, timescale: 24) // 24fps
+   device.activeVideoMaxFrameDuration = CMTime(value: 1, timescale: 24)
+   ```
+3. As a last resort before session termination, drop the compositor to 1080p output (stop accepting 4K buffers, downscale in compositor) to relieve encoder pressure while keeping both cameras active.
+4. Surface a non-alarming "Reducing quality to manage device temperature" message to the user rather than silently stopping.
+
+**Phase:** v1.1 — recording quality management and error handling.
+
+---
+
+### 22. PiPCompositor Output Size Not Updated Causes Silent Dimension Mismatch
+
+**Risk level:** Medium
+
+`PiPCompositor.mix(back:front:pipFrame:)` currently computes the output buffer dimensions as a fixed constant (1920×1080 in the v1.0 implementation) or derives them from the back camera buffer dimensions. If the compositor's internal output size is not updated when switching to 4K mode, one of two failures occurs:
+
+- **Fixed output size:** The compositor renders into a 1920×1080 buffer regardless of back camera input resolution. The resulting file is 1080p even when 4K was selected. No error is raised — the pipeline silently downscales.
+- **Derived from input but not propagated to the pool:** The compositor changes its render target size, but the `CVPixelBufferPool` in `AVAssetWriterInputPixelBufferAdaptor` was created for 1080p. The compositor requests a 4K buffer from the adaptor's pool, which allocates a 1080p buffer, and then the 4K render target does not fit.
+
+Additionally, the `pipFrame: CGRect` parameter that positions the front-camera overlay is typically expressed in 1080p coordinate space (0,0 to 1920,1080). If this is not scaled up to 4K coordinates (0,0 to 3840,2160) before compositing, the PiP overlay appears in the lower-left quadrant of the 4K frame rather than at the user's intended position.
+
+**Warning signs:** Recorded 4K file reports 4K dimensions but detail is blurry (1080p content upscaled); PiP overlay appears in wrong position in 4K recordings; `CVPixelBufferGetWidth` of compositor output is 1920 when 3840 is expected.
+
+**Prevention:**
+- Make output resolution a constructor parameter of `PiPCompositor`, not a constant. Pass `CGSize(width: 3840, height: 2160)` when 4K mode is active.
+- Scale all coordinate systems (pipFrame, overlay bounds, crop rects) proportionally when switching between output resolutions.
+- Assert in debug builds that `CVPixelBufferGetWidth(outputBuffer) == expectedWidth` at the start of each `mix()` call.
+- Teardown and recreate `PiPCompositor` when resolution changes, rather than mutating an existing instance — mutable state in a per-frame hot path is a source of race conditions.
+
+**Phase:** v1.1 — PiPCompositor parameterization.
+
+---
+
 ## Hardware / API Limitations to Accept
 
 These are real constraints, not bugs. Document them and design around them.
@@ -331,6 +607,10 @@ These are real constraints, not bugs. Document them and design around them.
 Dual 1080p simultaneous capture on iPhone XR (A12) works but is near the hardware budget ceiling. Using a binned 720p format for the front camera (which occupies a small PiP overlay) is the practical production approach. The 17 Pro Max has significantly more headroom.
 
 **Design decision:** Use back camera at 1080p30 (unbinned), front camera at 720p (binned). The front camera output is scaled down to PiP size anyway; 720p is visually indistinguishable from 1080p at PiP scale.
+
+### 4K in MultiCam Mode Is a Pro-Hardware Feature
+
+Based on WWDC 2019 session 249 and the ISP bandwidth model, 4K + front camera simultaneously is not feasible on A12 and unlikely on A13. It is viable starting with A15 Pro (iPhone 13 Pro) and confidently on A16/A17 (iPhone 14 Pro and later). The v1.1 implementation must treat 4K as conditionally available, not as a universal upgrade.
 
 ### No Native Dual-Track Audio Output
 
@@ -358,6 +638,21 @@ iOS will never permit camera use in a background app. Recording must stop when t
 
 ---
 
+## Phase-Specific Warning Summary (v1.1)
+
+| Phase Topic | Likely Pitfall | Mitigation |
+|-------------|---------------|------------|
+| 4K capability detection | Using single-camera 4K check instead of MultiCam check (Pitfall 20) | Filter formats by `isMultiCamSupported`, do trial configuration, check `hardwareCost` |
+| Session reconfiguration for 4K | `sessionPreset = .hd3840x2160` corrupts MultiCam format (Pitfall 16) | Always use `device.activeFormat` assignment; never use presets |
+| hardwareCost with 4K | 4K back + any front camera exceeds 1.0 on A12/A13 (Pitfall 14) | Degradation ladder: try 4K+720p, then 4K+480p, then 4K back-only |
+| CVPixelBufferPool | Pool still sized for 1080p when 4K buffers are appended (Pitfall 17) | Recreate MovieRecorder and adaptor with 3840×2160 `sourcePixelBufferAttributes` |
+| Core Image compositor | CIContext recreated per frame; no GPU context; caching enabled (Pitfall 18) | Singleton CIContext with `mtlDevice`, `.cacheIntermediates: false` |
+| Writer video settings | Width/height hardcoded to 1920/1080; H.264 at 4K (Pitfall 19) | Parameterize dimensions; use HEVC via `recommendedVideoSettings` |
+| PiP position in 4K | pipFrame in 1080p coordinates applied to 4K compositor (Pitfall 22) | Scale coordinate space proportionally; parameterize output size in compositor |
+| Thermal management | systemPressureCost rises above 2.0 during long 4K recording (Pitfall 21) | Observe pressure notifications; proactively reduce frame rate |
+
+---
+
 ## Sources
 
 - Apple WWDC 2019 Session 249 — Introducing Multi-Camera Capture for iOS: https://asciiwwdc.com/2019/sessions/249
@@ -370,3 +665,9 @@ iOS will never permit camera use in a background app. Recording must stop when t
 - Swift 6 camera app concurrency refactoring: https://fatbobman.com/en/posts/swift6-refactoring-in-a-camera-app/
 - beginConfiguration/commitConfiguration crash across open-source projects: https://github.com/react-native-camera/react-native-camera/issues/2329
 - AVMultiCamPiP Apple sample: https://developer.apple.com/documentation/AVFoundation/avmulticampip-capturing-from-multiple-cameras
+- WWDC 2020 Session 10008 — Optimize the Core Image Pipeline for Your Video App: https://developer.apple.com/videos/play/wwdc2020/10008/
+- AVCaptureDevice.Format.isMultiCamSupported: https://developer.apple.com/documentation/avfoundation/avcapturedevice/format/ismulticamsupported
+- AVCaptureVideoDataOutput.recommendedVideoSettings(forVideoCodecType:assetWriterOutputFileType:): https://developer.apple.com/documentation/avfoundation/avcapturevideodataoutput/recommendedvideosettings(forvideocodectype:assetwriteroutputfiletype:)
+- iPhone XR Technical Specifications (4K capable in single-camera mode): https://support.apple.com/en-us/111868
+- AVCaptureSession setting preset — forum thread confirming 4K preset breaks MultiCam activeFormat: https://developer.apple.com/forums/thread/808363
+- CVPixelBufferPool allocation threshold handling: https://developer.apple.com/documentation/corevideo/cvpixelbufferpool

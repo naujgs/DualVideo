@@ -1,162 +1,160 @@
-# Features Research — DualVideo
+# Feature Landscape — v1.1: 4K Resolution Support
 
-**Domain:** iOS dual-camera simultaneous recording app (personal use, PiP compositor)
-**Researched:** 2026-05-16
-**Confidence:** MEDIUM-HIGH (iOS 18 API behavior verified; competitor feature sets from App Store listings and reviews, MEDIUM confidence)
+**Domain:** Hardware-gated resolution selection in an iOS dual-camera recording app
+**Researched:** 2026-05-19
+**Milestone:** v1.1 (adds to existing QualitySettingsSheet / VideoQualitySettings infrastructure)
+**Confidence:** HIGH for AVFoundation constraints (WWDC 2019 + Apple Docs); MEDIUM for UX conventions (no authoritative source; derived from Apple native camera app patterns and HIG principles)
+
+---
+
+## Critical Domain Finding
+
+**4K in AVCaptureMultiCamSession is not guaranteed to be `isMultiCamSupported`.** Apple deliberately limits formats available to `AVCaptureMultiCamSession` to "ones that can comfortably run simultaneously on end devices" (WWDC 2019 Session 249). As of that session, the documented ceiling was 1920×1440. More recent hardware (A15+, iPhone 14 Pro+) may expose 4K formats with `isMultiCamSupported = true`, but this is device-specific and cannot be assumed.
+
+Consequence: the 4K option must be discovered at runtime by querying `backDevice.formats` for a format where `dims.width == 3840 && isMultiCamSupported == true`. On iPhone XR (the minimum test device, A12), 4K is likely **unavailable in multicam mode** — the option must be hidden or permanently disabled for that device. On iPhone 17 Pro Max (the secondary device, A18 Pro), 4K multicam is confirmed by MacRumors/FiLMiC DoubleTake marketing.
+
+The feature must be truly runtime-gated, not assumed from chip generation.
 
 ---
 
 ## Table Stakes
 
-Features users expect when they open any dual-camera recording app. Absence causes immediate abandonment or a 1-star review.
+Features users expect once any 4K option exists in the quality panel. These are not optional — they define baseline quality.
 
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| Live preview of both cameras simultaneously | Core premise — if you can't see what you're recording, the app is broken | Low | `AVCaptureMultiCamSession` handles this natively |
-| Single tap to start/stop recording | Every camera app works this way; two separate buttons would feel broken | Low | Already in requirements |
-| Result saved to Photos automatically | Users expect no manual export step; Files/iCloud storage feels like friction | Low | `PHPhotoLibrary` save; already in requirements |
-| Elapsed recording time display | Users need to know how long they've been recording — no counter = anxiety | Low | Red dot + `MM:SS` counter; standard HIG pattern |
-| Microphone permission prompt with explanation | iOS will reject the app silently otherwise; users also distrust apps that don't explain | Low | `NSMicrophoneUsageDescription` in Info.plist |
-| Camera permission prompt with explanation | Same as above — required by system | Low | `NSCameraUsageDescription` |
-| Photo Library permission prompt with explanation | Required to save output | Low | `NSPhotoLibraryAddUsageDescription` |
-| Graceful "permissions denied" state | If any permission is denied, the app must explain what's broken and how to fix it (Settings deep-link) | Low | Tapping the message should open `UIApplication.openSettingsURLString` |
-| Graceful "hardware not supported" state | A12 requirement means some users will hit this; silent crash = very bad | Low | Detect `AVCaptureMultiCamSession.isMultiCamSupported` before session setup |
-| Countdown before recording starts | Standard pattern on every camera app with a timer; 3 s is the community norm. Without it, users miss the first second | Low | Already in requirements |
-| Pinch-to-zoom on back camera | iOS Camera does this; users muscle-memory it | Low | Already in requirements |
-| PiP overlay draggable to reposition | iPhone 17 native Dual Capture and every third-party app (DualCapture, MixCam, 2Camera) all do this | Medium | Already in requirements |
-| Output as a single merged video file | Split-file output (separate front/back) is a differentiator, not table stakes for personal use | Low | Already in requirements |
+| 4K appears only if hardware supports it | If 4K is offered but fails at recording time, the app is broken. Users cannot tolerate silent format fallbacks | Low | Query `backDevice.formats` for `width == 3840 && isMultiCamSupported == true` before exposing option |
+| Storage size indicator next to 4K label | 4K HEVC at 30fps is ~400–450 MB/min; at 60fps ~400 MB/min. Users making storage decisions need this cue. Apple's native Camera Settings shows "High Efficiency" / "Most Compatible" with storage impact labels | Low | Static label: e.g. "~400 MB/min" beneath or beside the 4K segment |
+| 4K seamlessly integrated into existing segmented picker | QualitySettingsSheet already has a segmented Picker for `OutputResolution.allCases`. The 4K case must slot in with no visual seam | Low | Add `.uhd4K` to `OutputResolution` enum; the picker renders it automatically |
+| Resolution saved/restored correctly across sessions | `VideoQualitySettings.load()` already round-trips via UserDefaults. The `.uhd4K` raw value must survive an app restart | Low | Codable conformance handles this if raw value is stable ("4K") |
+| `applyFormat` picks correct 4K format | `CameraManager.applyFormat(to:targetLandscapeWidth:)` already filters for `isMultiCamSupported`. Passing `landscapeWidth: 3840` must match a real format on the device | Low | Add `landscapeWidth = 3840` to `OutputResolution.uhd4K`; no logic change needed in `applyFormat` |
+| Graceful degradation if 4K format missing | If a saved "4K" setting is loaded on a device that doesn't support it, the app must fall back to 1080p silently (no crash, no error state) | Low | On session start, if `supports4K == false && qualitySettings.resolution == .uhd4K`, reset to `.hd1080p` |
 
 ---
 
 ## Differentiators
 
-Features that move the app from "functional" to "notably better." Not universally expected, but add real value.
+Features that go beyond the functional floor. Not expected, but add real value and distinguish the quality panel.
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| Corner snapping for PiP overlay | Apple's own Dual Capture on iPhone 17 does NOT snap; it just lets you drag freely. A snap-to-corner behavior during drag reduces accidental mid-frame placement and makes the result look polished. MixCam and DualCapture offer 4-corner presets | Medium | Implement as UIKit gesture recognizer releasing to nearest corner; can use `UISnapBehavior` or manual threshold logic |
-| Haptic feedback on record start/stop | DualCapture explicitly markets "perfected haptics." Most camera apps ignore this. Gives tactile confirmation that the session actually started — critical when holding phone at arm's length | Low | Use `UIImpactFeedbackGenerator(.medium)` on record start, `.heavy` on stop. Note: call `setAllowHapticsAndSystemSoundsDuringRecording(true)` on `AVAudioSession` to prevent haptic suppression |
-| Audio level indicator during recording | Shows the user that both mics are picking up sound. Differentiates from apps that give no audio feedback whatsoever | Medium | `AVAudioSession.inputNode` metering; visualize as a simple VU bar on the PiP overlay or toolbar |
-| Persistent PiP position across sessions | If the user always wants the front camera in the top-right, they should only position it once. No competitor documents this behavior | Low | `UserDefaults` store of last CGPoint; restore on launch |
-| Orientation lock toggle | Final Cut Camera has it; the native Camera app lacks it. For walking or talking vlog-style content, screen rotation mid-recording is disorienting | Low | `AppDelegate.supportedInterfaceOrientations` + UI toggle; lock to current orientation on tap |
-| Visible zoom level indicator | Apple Camera shows `0.5×`, `1×`, `2×` labels. Users want to know what zoom they're at, not just pinch blindly | Low | Bind to `AVCaptureDevice.videoZoom­Factor`; display as `1.0×` label near the back camera preview |
-| Flash / torch toggle for video | Expected on any night/indoor capture scenario. DualCapture and 2Camera both include it | Low | `AVCaptureDevice.torchMode`; show a flash icon that toggles `.on`/`.off` |
+| Live storage estimate while sheet is open | Show remaining-space estimate for the selected resolution at current settings: "At 4K 30fps, ~12 min recording remaining (5.1 GB free)". No iOS camera app does this natively | Medium | `URLResourceKey.volumeAvailableCapacityForImportantUsageKey` on session start; update estimate when resolution changes |
+| Per-resolution storage impact comparison | Inline footnote comparing selected resolution to others: "4K uses ~7× more storage than 720p". Helps users understand the tradeoff at decision time | Low | Static copy based on known ratios; no dynamic calculation needed |
+| Notification when selected 4K + low storage | If the user selects 4K and free storage < 1 GB, warn before they start recording. Apple's native Camera app does a similar warning but only at recording time | Medium | Check available storage in `RecordingManager.startRecording()`; surface via existing `sessionError` / toast mechanism |
 
 ---
 
-## Anti-Features (v1)
+## Anti-Features
 
-Deliberately excluded. Not worth the build cost for personal use or actively harmful to UX.
+Explicitly do not build these for v1.1.
 
 | Anti-Feature | Why Avoid | What to Do Instead |
 |--------------|-----------|-------------------|
-| Split-screen layout option (50/50) | DoubleTake and DualCapture offer this. For DualVideo the PiP-with-draggable-overlay is the entire product thesis; adding layout modes adds picker UI and doubles compositor complexity | Hard-code PiP; back camera is always fullscreen |
-| Camera swap (front becomes background) | Already listed in PROJECT.md as out of scope. Flipping the compositor requires re-wiring the entire `AVAssetWriter` pipeline. Large complexity, low personal value | Static layout: back = background, front = overlay |
-| Separate file export (front + back as individual files) | DualCapture differentiates on this. For personal use a single merged file is the correct output — Photos handles it, AirDrop handles it | Single `.mov` only |
-| 4K output | Already out of scope per PROJECT.md. 4K files on a personal device fill storage quickly and have no playback advantage on most screens. Dual 4K streams saturate even A15 thermal budget | 1080p only |
-| Video trimming in-app | Photos.app does this. Building an editor is a separate product | Let Photos handle it |
-| Filters / color grading | BeReal's stripped-down UX is a feature, not a bug. For personal documentary use, authentic > pretty | No filters |
-| Social sharing / upload integration | Cloud sync explicitly out of scope per PROJECT.md | Save to Photos; user shares from there |
-| Pause and resume recording | Adds session state complexity (pause = stop + restart + stitch?). No user story for this in personal use | Single continuous take only |
-| Multiple PiP sizes / resize handles | DualCapture offers this but reviews cite it as complexity people don't use. Draggable position is enough | Fixed PiP size (approx 25-30% of screen width) |
-| Watermarks / branding | Personal use; watermarks are for content creator monetization | No watermark |
-| Subscription / paywall | Personal side-load; no commerce infrastructure needed | Free, no IAP |
+| Greyed-out 4K segment on unsupported devices | SwiftUI segmented pickers cannot disable individual segments without custom implementation. A greyed segment implies "maybe later" — but 4K in multicam may never be available on that hardware. A greyed option creates friction and false hope | Hide 4K entirely when not supported. The picker shows only 720p and 1080p, identical to v1.0 behavior |
+| `supportsSessionPreset(.hd4K3840x2160)` as detection method | `sessionPreset` checks do not account for `isMultiCamSupported`. A device may support 4K in single-cam but not multicam. Using preset check could expose 4K, which then silently fails or pushes `hardwareCost >= 0.9` at session start | Use format-level detection: iterate `backDevice.formats`, filter `dims.width == 3840 && format.isMultiCamSupported` |
+| 4K on the front camera | The PiP front-camera overlay is small (25–30% of screen width). A 3840-wide capture for a PiP overlay is waste; the compositied PiP output is only 3840 wide total. Apply 4K only to the back (background) camera; keep front at 1080p | `applyFormat` on front device: always cap at `landscapeWidth: 1920` when output resolution is 4K |
+| ProRes or LOG output at 4K | Not accessible via AVAssetWriter without an iPhone 13 Pro+ hardware encoder and specific entitlements. Entirely out of scope for a personal sideload | HEVC (H.265) only via existing `AVAssetWriter` pipeline |
+| Dynamic bitrate control | The existing `VideoQualitySettings` model has no bitrate field; the current `MovieRecorder`/`PiPCompositor` derives bitrate from resolution. Adding manual bitrate to a 4K flow doubles the settings surface area | Use a fixed target bitrate for 4K (e.g. 60–80 Mbps HEVC); no picker needed |
+| "4K not available on this device" placeholder row | Shows users a feature they can never have. Better to say nothing | Omit; the 720p / 1080p picker is the complete UI on unsupported hardware |
 
 ---
 
-## UX Patterns
+## UX Pattern: Conditional Offering (Hardware-Gated)
 
-Common patterns observed across comparable apps (BeReal, DoubleTake, DualCapture, MixCam, iPhone 17 native Dual Capture).
+**Recommendation: hide, do not disable.**
 
-### PiP Overlay Drag Behavior
+Apple's own HIG guidance on disabled controls (from button state documentation) is: "disable a control when its action is temporarily unavailable and the control communicates information the person might need." The word "temporarily" is key — 4K in multicam on an iPhone XR will never be available. It is not a temporary condition. Permanent unavailability justifies hiding over disabling.
 
-- All apps allow drag-to-reposition during live preview AND during recording. The iPhone 17 native Dual Capture explicitly warns users that repositioning during recording is permanent in the output — the same is true for DualVideo since compositing is real-time.
-- Corner snapping: DualCapture uses 4-corner presets (tap to cycle). Apple's Dual Capture does NOT snap — free placement only. MixCam allows free placement with no snap. Snapping is a differentiator, not table stakes.
-- Safe area: PiP overlay must not occlude the record button. Prevent dragging into the bottom ~100pt (safe area + controls) or implement collision detection with the record button.
+Observed behavior in Apple-first-party apps:
+- iOS Camera Settings hides format options entirely on unsupported models (e.g., ProRes does not appear on non-Pro models at all — not greyed, not shown)
+- Apple's Cinematic mode, Action mode, ProRes are all hidden-when-unsupported in the native app, never shown-and-disabled
 
-### Recording State Feedback
+Community convention in third-party camera apps:
+- Halide Mark II hides RAW toggle on iPhone models where RAW is unsupported
+- FiLMiC DoubleTake limits quality preset UI to the formats the detected hardware can deliver
 
-- Red dot + elapsed timer (`00:00`) in top-right or center-top is universal across iOS camera apps (Apple Camera, FiLMiC, DualCapture). Users look for this automatically.
-- The record button itself visually changes state: circle → square (stop icon), often with a red fill pulse. Apple HIG documents this as the expected pattern.
-- Haptic on start/stop is a differentiator today but will become table stakes quickly given DualCapture's marketing emphasis on it.
-- Audio waveform (full waveform animation): used in Waveform Camera (niche pro app) but not standard in consumer dual-cam apps. A simple VU bar or peak indicator is sufficient and far less complex.
-
-### Countdown Timer Pattern
-
-- Standard countdown display: large centered number, counts down 3... 2... 1... then transitions to recording state.
-- Flash/blink of the number on each tick is common (Apple Camera does this).
-- Cancelable: tapping anywhere during countdown cancels it. This is the Apple HIG expectation.
-- Audio tick sound: Apple Camera plays a tick; for a personal app this is optional but expected. Can use system sound `AudioServicesPlaySystemSound(1057)` (camera shutter beep family).
-
-### Permission UX
-
-- Best practice (NNGroup + Apple HIG): show a custom pre-permission dialog BEFORE triggering the system prompt. Explain benefit clearly: "To record video, DualVideo needs access to your cameras and microphones."
-- Never ask for all permissions at launch. Ask for camera + microphone together at first camera preview attempt (they're coupled). Ask for Photos access only when the user stops a recording and the save is about to happen.
-- Denial handling: show a non-dismissable overlay with a "Go to Settings" button that deep-links to `UIApplication.openSettingsURLString`. Do not show a generic alert — show exactly which permission is missing and what it enables.
-
-### Post-Recording Flow
-
-- Apple's Dual Capture, DualCapture, and MixCam all follow the same pattern: record → stop → auto-save to Photos → brief toast/confirmation. There is NO preview-before-save step in any of these apps.
-- Preview-before-save adds complexity (requires `AVPlayer`, a second screen, explicit confirm/discard buttons) and is a friction point for personal documentary use where you always want the clip saved.
-- Recommendation for DualVideo: auto-save on stop, show a brief success indicator (checkmark toast or green flash), no preview step. This matches the Apple native Dual Capture behavior exactly.
-
-### Zoom Controls
-
-- Pinch-to-zoom is universal and expected. The simultaneous pinch gesture on a touch screen does wobble the phone during video, but it is the only pattern users know.
-- Displaying current zoom level as a label (e.g., `1.4×`) near the back camera preview prevents confusion and is shown in Apple Camera.
-- Jumping to preset zoom levels (0.5×, 1×, 2×) via tap is an Apple Camera pattern. For v1, pinch + numeric display is sufficient; preset buttons can come later.
-
-### Orientation and Layout
-
-- All dual-camera apps default to portrait (9:16) for PiP/reaction-video use cases matching social media.
-- Landscape mode is supported in DoubleTake and DualCapture but treated as secondary.
-- For DualVideo (personal use, fullscreen back camera + overlay): portrait-first, and consider locking orientation once recording begins to prevent accidental rotations.
+**Implementation for QualitySettingsSheet:**
+- `AppState` holds a `Bool supports4K` computed once at session startup
+- `QualitySettingsSheet` receives `supports4K: Bool` as a parameter
+- `ForEach(filteredResolutions)` where `filteredResolutions` excludes `.uhd4K` when `!supports4K`
+- Sheet `presentationDetents` may need to grow from `.height(260)` to `.height(300)` to accommodate a 3-segment picker without crowding
 
 ---
 
-## Feature Dependencies
+## Storage Warning UX Convention
 
-Which features require others to be implemented first.
+**What users expect:**
+
+| Scenario | Expected UX |
+|----------|-------------|
+| User selects 4K in quality panel | Static storage impact note near the picker ("~400 MB/min at 30fps") |
+| User starts recording in 4K with <1 GB free | Alert before recording starts, not mid-recording (silent disk-full mid-recording produces a corrupt or empty file) |
+| User is mid-recording in 4K and disk fills | OS terminates write; app must catch `AVAssetWriter.status == .failed` and surface an error (already handled by existing MovieRecorder error path) |
+
+**File size reference (HEVC, not ProRes):**
+
+| Resolution | 30fps | 60fps |
+|------------|-------|-------|
+| 720p | ~60 MB/min | ~90 MB/min |
+| 1080p | ~130 MB/min | ~200 MB/min |
+| 4K | ~400 MB/min | ~400–750 MB/min |
+
+Note: 4K at 60fps bitrate variation is wide (400–750 MB/min) depending on Apple's HEVC encoder efficiency and scene complexity. Use 400 MB/min as a conservative/safe estimate for any storage warning copy.
+
+---
+
+## Feature Dependencies (v1.1 delta)
+
+The v1.1 additions are narrow. All depend on the existing `QualitySettingsSheet` / `VideoQualitySettings` / `CameraManager.applyFormat` chain that is already built and validated.
 
 ```
-AVCaptureMultiCamSession setup
-    └── Hardware detection ("not supported" gate)
-    └── Camera permission
-    └── Microphone permission
-        └── Live preview (back camera fullscreen + front camera feed)
-            └── PiP overlay rendering (SwiftUI layer over preview)
-                └── Drag-to-reposition gesture
-                    └── Corner snapping
-                    └── Persistent position (UserDefaults)
-            └── Pinch-to-zoom (back camera)
-            └── Zoom level label display
-            └── Flash / torch toggle
-            └── Orientation lock toggle
-            └── Countdown timer UI
-                └── Record button (start → countdown → recording)
-                    └── Elapsed time display
-                    └── Haptic feedback (start/stop)
-                    └── AVAssetWriter compositor (pixel buffer pipeline)
-                        └── Photos permission
-                        └── Auto-save to Photos
-                            └── Success toast
+[Existing] VideoQualitySettings.OutputResolution enum
+    └── Add .uhd4K case (landscapeWidth: 3840, portrait: 2160×3840)
+
+[Existing] CameraManager.applyFormat(to:targetLandscapeWidth:)
+    └── No logic change; 3840 width query works via existing isMultiCamSupported filter
+    └── [NEW] Detection step: query backDevice.formats for 3840-wide isMultiCamSupported format
+        └── [NEW] AppState.supports4K: Bool (published once at session startup)
+            └── [NEW] QualitySettingsSheet(supports4K:) — conditional ForEach
+                └── [NEW] Storage hint label below Resolution picker
+
+[Existing] VideoQualitySettings.load() / save()
+    └── No change; Codable round-trips new .uhd4K raw value automatically
+
+[Existing] PiPCompositor / MovieRecorder
+    └── Must configure AVAssetWriter output at 3840×2160 when resolution == .uhd4K
+    └── Front camera: capped at 1920-wide format regardless of selected resolution
+
+[Existing] RecordingManager.startRecording()
+    └── [OPTIONAL] Low-storage guard: check available bytes before starting 4K recording
 ```
 
-**Critical path for MVP:** Hardware detection → Permissions (camera + mic) → Live dual preview → Compositor pipeline → Record/stop → Auto-save.
+**Critical path for v1.1:** `OutputResolution.uhd4K` enum case → detection (`supports4K`) → conditional picker → `applyFormat(3840)` → compositor at 3840×2160 output.
 
-Everything else (zoom label, haptics, corner snap, orientation lock, torch, persistent PiP position, audio VU indicator) can be layered on top of a working compositor.
+The only genuinely new surface area is the capability detection (`supports4K`) and how it propagates to the sheet. Everything else is parameter changes to existing code.
+
+---
+
+## MVP Recommendation for v1.1
+
+Build in this order:
+
+1. **`OutputResolution.uhd4K`** — add enum case, `width/height/landscapeWidth` properties. Codable for free.
+2. **Capability detection** — query `backDevice.formats` at session start; publish `supports4K: Bool` on `CameraManager` or `AppState`.
+3. **QualitySettingsSheet conditional picker** — pass `supports4K`; hide 4K segment when false. Add static storage hint ("~400 MB/min") below the resolution picker.
+4. **Compositor + recorder at 4K** — `PiPCompositor` output frame at 3840×2160; `MovieRecorder` `AVAssetWriter` output settings at 3840×2160.
+5. **Front camera cap** — ensure `applyFormat` on the front device never attempts 3840-wide; hard-cap at 1920.
+
+Defer: live storage-remaining estimate, low-storage pre-recording warning (valuable but not blocking; existing `MovieRecorder` error path already handles disk-full at write time).
 
 ---
 
 ## Sources
 
-- [DualCapture: Dual Camera + PiP — App Store](https://apps.apple.com/us/app/dualcapture-dual-camera-pip/id6756251524)
-- [DoubleTake by Filmic — App Store](https://apps.apple.com/us/app/doubletake-multicam-video/id1478041592)
-- [iPhone 17 Dual Capture — MacRumors How-To](https://www.macrumors.com/how-to/iphone-17-dual-capture-video/)
-- [Top 5 Dual Capture Video Apps for iPhone 17 — Mixcord](https://www.mixcord.co/blogs/content-creators/best-dual-capture-video-apps-iphone-17)
-- [DoubleTake by Filmic review — Macworld](https://www.macworld.com/article/233916/doubletake-by-filmic-review.html)
-- [MixCam: Front and Back Camera — App Store](https://apps.apple.com/us/app/mixcam-front-and-back-camera/id1477390597)
-- [5 Ways Apps Ask for iOS Permissions — Medium / Product Breakdown](https://medium.com/product-breakdown/5-ways-to-ask-users-for-ios-permissions-a8e199cc83ad)
-- [3 Design Considerations for Mobile Permission Requests — NNGroup](https://www.nngroup.com/articles/permission-requests/)
-- [Haptic Feedback and AVAudioSession Conflicts in iOS — Medium](https://medium.com/@mi9nxi/haptic-feedback-and-avaudiosession-conflicts-in-ios-troubleshooting-recording-issues-666fae35bfc6)
-- [iPhone 17 All Models Get Dual Capture — 9to5Mac](https://9to5mac.com/2025/09/10/iphone-17-video-dual-cam-recording/)
+- [WWDC 2019 Session 249: Introducing Multi-Camera Capture for iOS — ASCII WWDC](https://asciiwwdc.com/2019/sessions/249) — authoritative on multicam format constraints and hardware cost model
+- [AVCaptureDevice.Format.isMultiCamSupported — Apple Developer Docs](https://developer.apple.com/documentation/avfoundation/avcapturedevice/format/ismulticamsupported) — per-format multicam support flag
+- [AVCaptureMultiCamSession — Apple Developer Docs](https://developer.apple.com/documentation/avfoundation/avcapturemulticamsession) — session-level isMultiCamSupported
+- [How to check if an iOS camera supports 4K capture — GitHub Gist simonkim](https://gist.github.com/simonkim/4c7a20fb978c9dfc350b6bb4c1512332) — `supportsSessionPreset(.hd4K3840x2160)` pattern (note: this is single-cam; multicam requires format-level check)
+- [iPhone Video Size per Minute — VideoProc](https://www.videoproc.com/iphone-video-processing/iphone-video-size-per-minute.htm) — HEVC storage reference (170 MB/min 4K 30fps; 400 MB/min 4K 60fps)
+- [About Apple ProRes on iPhone — Apple Support](https://support.apple.com/en-us/109041) — confirms hide-when-unsupported pattern for hardware-gated formats in native Camera app
+- [iPhone 17 Dual Capture 4K — MacRumors Forums](https://forums.macrumors.com/threads/iphone-17-using-the-new-dual-capture-video-feature.2466908/page-2) — confirms 4K 60fps dual-cam is available on A18 Pro (iPhone 17 Pro); cross-validates that newer silicon unlocks higher multicam formats

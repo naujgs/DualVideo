@@ -1,167 +1,142 @@
-# Project Research Summary
+# Research Summary — DualVideo v1.1: 4K Resolution Support
 
 **Project:** DualVideo
-**Domain:** iOS dual-camera simultaneous recording with real-time PiP compositing
-**Researched:** 2026-05-16
-**Confidence:** HIGH (core AVFoundation stack verified against Apple sample code and WWDC documentation)
+**Domain:** iOS dual-camera capture / AVFoundation pipeline extension
+**Researched:** 2026-05-19
+**Confidence:** HIGH (stack/architecture — code read directly + Apple docs); MEDIUM (hardware behavior at 4K in MultiCam — requires device validation)
 
 ---
 
 ## Executive Summary
 
-DualVideo is a real-time dual-camera capture app that uses `AVCaptureMultiCamSession` — Apple's only session type capable of running front and back cameras simultaneously — to composite both feeds into a single PiP video file. The established expert approach, codified in Apple's own AVMultiCamPiP sample code from WWDC 2019, uses a Metal compute shader to merge two `CVPixelBuffer` streams in under 2ms per frame, feeding the result into `AVAssetWriter` for H.264 encoding. This is a narrow but well-documented technology stack with very few viable alternatives; every candidate that bypasses `AVCaptureMultiCamSession` or `AVAssetWriter` fails to meet the core requirement of producing a composited 1080p PiP video file.
+DualVideo v1.1 adds optional 4K (3840×2160) recording to an existing dual-camera PiP pipeline that is already built and validated at 1080p. The core challenge is not codec or rendering complexity — the existing AVCaptureMultiCamSession + PiPCompositor + AVAssetWriter stack handles 4K without structural redesign. The challenge is hardware gating: `AVCaptureMultiCamSession` imposes a hard ISP bandwidth budget (`hardwareCost <= 1.0`) and Apple does not document which specific device models have a back-camera 4K format with `isMultiCamSupported == true`. 4K in MultiCam mode is effectively a Pro-tier hardware feature. iPhone XR (the minimum test device) will almost certainly show 4K as unavailable; iPhone 17 Pro Max will almost certainly support it. All devices in between require runtime detection.
 
-The recommended architecture is strict MVVM with a clean three-layer separation: SwiftUI views observe a `RecordingViewModel`, which coordinates a `CameraManager` service that encapsulates all AVFoundation code. Two internal services — `PiPCompositor` and `MovieRecorder` — handle Metal compositing and `AVAssetWriter` lifecycle respectively and are never exposed above `CameraManager`. A custom global actor (`CameraActor`) or a dedicated serial GCD queue is required to avoid Swift 6 concurrency violations and prevent `startRunning` from blocking the main thread. Three queues (main, session, data-output) is the correct threading model — collapsing or expanding that number causes UI freezes or synchronization bugs.
+The recommended approach is narrow and additive: add an `OutputResolution.uhd4K` enum case, implement runtime format detection on `CameraManager` at session startup, gate the UI picker conditionally, and ensure `MovieRecorder`/`PiPCompositor` receive 3840×2160 dimensions when 4K is selected. No new frameworks, no new pipeline stages, no new actors. The codec change to HEVC for 4K output and the asymmetric camera configuration (4K back, 1080p front) are the two meaningful new decisions. Everything else is parameter propagation through an already-working system.
 
-The dominant risks are hardware-budget exhaustion on iPhone XR (A12), AVAssetWriter state-machine violations producing corrupt files, and Swift 6 concurrency warnings that, if suppressed rather than fixed, hide real data races. All three are fully preventable with upfront architectural decisions: use `AVCaptureDataOutputSynchronizer` for frame synchronization, wrap `beginConfiguration/commitConfiguration` in `defer`, and design the actor boundary before writing any AVFoundation code. On-device testing on iPhone XR from Phase 1 is non-negotiable — Simulator exercises none of this code.
+The primary risk is incorrect capability detection. There are two distinct failure modes: (1) showing 4K on a device where `isMultiCamSupported` is false, causing a session stop at `startRunning()` time; (2) showing 4K on a device where a format passes `isMultiCamSupported` but the combined `hardwareCost` with any front camera format still exceeds 1.0. Both must be caught before the 4K option is shown in the UI. A trial configuration at session startup — apply 4K back + lowest-cost front, commit, read `hardwareCost`, revert — is the only reliable mechanism.
 
 ---
 
 ## Key Findings
 
-### Recommended Stack
+### Stack Additions for v1.1
 
-The stack has essentially one correct answer at each layer, all verified against Apple's own sample code. `AVCaptureMultiCamSession` is the only session type that runs two cameras simultaneously; `AVCaptureVideoDataOutput` is the only output type that delivers raw `CVPixelBuffer` frames suitable for compositing; `AVAssetWriter` is the only writer that accepts composited pixel buffers. Metal (via `CVMetalTextureCacheCreateTextureFromImage` for zero-copy texture import) is the right compositor — Core Image adds unnecessary overhead. `AVCaptureVideoPreviewLayer` via `UIViewRepresentable` is the only viable live-preview path from SwiftUI. There is no flexibility in this stack without sacrificing correctness.
+No new frameworks. All required APIs are already in the existing imports (`AVFoundation`, `CoreImage`, `CoreVideo`). The three meaningful additions:
 
-**Core technologies:**
-- `AVCaptureMultiCamSession`: dual-camera session — only API that runs front + back simultaneously; A12 minimum
-- `AVCaptureVideoDataOutput` (x2): raw pixel buffer delivery — required for compositor input
-- `AVCaptureDataOutputSynchronizer`: frame synchronization — eliminates timestamp-matching problem between two camera outputs
-- Metal + `CVMetalTextureCacheCreateTextureFromImage`: zero-copy compositor — 0.2–1.5ms per frame, fits 30fps budget
-- `AVAssetWriter` + `AVAssetWriterInputPixelBufferAdaptor`: file writing — only path that accepts pre-composited buffers
-- H.264 / MPEG-4 AAC: output codec — Photos-compatible, appropriate for iPhone XR, 1080p target
-- `AVCaptureVideoPreviewLayer` via `UIViewRepresentable`: live preview — hardware-accelerated, zero CPU copy, mandatory UIKit bridge
-- `@Observable` (`RecordingViewModel`, `CameraManager`): state management — iOS 17+ API, finer-grained observation than `ObservableObject`
-- iOS 18.0 minimum: deployment target — grants `videoRotationAngle` (non-deprecated orientation API); A12 hardware floor
+**New APIs in use:**
+- `CMVideoFormatDescriptionGetDimensions` + `AVCaptureDeviceFormat.isMultiCamSupported`: format-level 4K capability detection — the only correct API for MultiCam gating (not `supportsSessionPreset`, which checks single-cam capability)
+- `AVVideoCodecType.hevc` in `MovieRecorder`: required for practical 4K bitrate (~45 Mbps HEVC vs ~90 Mbps H.264 at equivalent quality for 4K30)
+- `AVCaptureVideoDataOutput.recommendedVideoSettings(forVideoCodecType:assetWriterOutputFileType:)`: Apple-calibrated HEVC settings; avoids hardcoded bitrate that may be wrong per device/chip
 
-### Expected Features
+**Critical version note:** `videoRotationAngle` (iOS 17+) must be used instead of deprecated `videoOrientation` — project targets iOS 18.0+ so this is already the right API.
 
-The MVP critical path is: hardware detection → permissions (camera + mic) → live dual preview → compositor pipeline → record/stop → auto-save. Everything else layers on top.
+### Feature Table Stakes vs. Differentiators
 
-**Must have (table stakes):**
-- Live preview of both cameras simultaneously — core premise; absence is instant abandonment
-- Single tap to start/stop recording — universal camera app pattern
-- 3-second countdown before recording — standard pattern; users miss first second without it
-- Auto-save to Photos on stop — no manual export step; friction kills personal-use apps
-- Elapsed recording time display (red dot + MM:SS) — recording anxiety without it
-- PiP overlay draggable to reposition — expected by every comparable app
-- Pinch-to-zoom on back camera — muscle memory; absence feels broken
-- Permission prompts with clear explanations — required by iOS; silence causes trust failure
-- Graceful "permissions denied" state with Settings deep-link
-- Graceful "hardware not supported" state (pre-A12 devices)
+**Must have (table stakes) — v1.1 ships incomplete without these:**
+- 4K option visible only on hardware where a trial session configuration stays under `hardwareCost == 0.95` — hide (not disable) per Apple HIG
+- Static storage hint below resolution picker: "~400 MB/min at 30fps" — users selecting 4K need storage context before recording
+- Setting persists across restarts via existing `VideoQualitySettings` Codable path (no code change required)
+- Graceful fallback: saved 4K setting on non-4K device resets to 1080p silently before session start
 
-**Should have (competitive differentiators):**
-- Corner snapping for PiP overlay — Apple's native Dual Capture does NOT snap; this is a genuine differentiator
-- Haptic feedback on record start/stop — `UIImpactFeedbackGenerator`; requires `setAllowHapticsAndSystemSoundsDuringRecording(true)`
-- Persistent PiP position across sessions — `UserDefaults`; no competitor documents this
-- Zoom level label (e.g., `1.4x`) near back camera preview
-- Flash/torch toggle for video recording
-- Orientation lock toggle once recording begins
+**Should have (differentiators) — high value, not blocking:**
+- Live storage-remaining estimate in quality sheet at selected resolution
+- Low-storage pre-recording warning when free space < 1 GB and 4K is selected
 
-**Defer to v2+:**
-- Split-screen 50/50 layout — doubles compositor complexity; not the product thesis
-- Camera swap (front becomes background) — requires full pipeline rewire
-- Separate file export per camera — single merged file is the correct personal-use output
-- 4K output — fills storage; dual 4K saturates A15 thermal budget
-- Audio level VU indicator — medium complexity; value is low for personal use
-- In-app trim, filters, social sharing, pause/resume — out of scope per PROJECT.md
+**Defer to v1.2+:**
+- Thermal-aware frame rate reduction (reactive `systemPressureCost` monitoring)
+- ProRes or LOG output (requires hardware entitlements, out of scope)
+- 4K on front camera (ISP bandwidth ceiling — Apple's own Dual Capture uses asymmetric approach)
 
-### Architecture Approach
+### Architecture Changes Required
 
-The app follows strict MVVM where views import only SwiftUI, the ViewModel imports no AVFoundation types, and `CameraManager` owns the entire capture stack. Two nested services — `PiPCompositor` and `MovieRecorder` — are internal to `CameraManager` and invisible to the ViewModel. Three dedicated queues (main, `sessionQueue`, `dataOutputQueue`) handle UIKit/SwiftUI updates, session configuration, and frame delivery respectively. `RecordingViewModel` owns a well-typed `RecordingState` enum that drives all conditional UI; `CameraManager` owns a separate session setup state machine. The `AVCaptureDataOutputSynchronizer` delivers both camera frames in a single callback at the same `CMTime`, eliminating the timestamp-matching problem.
+Four components change; three require no modification.
 
-**Major components:**
-1. `CameraManager` — owns `AVCaptureMultiCamSession`, all inputs/outputs, `PiPCompositor`, `MovieRecorder`; publishes state only
-2. `PiPCompositor` — Metal compute shader merges back + front `CVPixelBuffer` into single composited 1080p frame
-3. `MovieRecorder` — `AVAssetWriter` wrapper; strict state machine: startWriting, startSession, append, markAsFinished, finishWriting
-4. `RecordingViewModel` — `@Observable` state machine (idle, countdown, recording, saving, done/error); coordinates above services; no AVFoundation imports
-5. `PhotoLibrarySaver` — isolated service; saves temp `.mov` URL to `PHPhotoLibrary`, deletes temp file on success
-6. `PermissionManager` — checks and requests camera, microphone, photo-library permissions in sequence before any session setup
-7. `CameraPreviewView` — `UIViewRepresentable` wrapping `AVCaptureVideoPreviewLayer`; zero logic; instantiated twice (back full-screen, front PiP)
+**Components that change:**
 
-### Critical Pitfalls
+1. **`OutputResolution` enum** (`VideoQualitySettings.swift`) — add `.uhd4K` case (`width: 2160`, `height: 3840`, `landscapeWidth: 3840`). Add `frontCameraLandscapeWidth` computed property that returns 1920 for `.uhd4K` (front camera never gets 4K format — ISP bandwidth ceiling).
 
-1. **Hardware cost budget exceeded on A12** — log `session.hardwareCost` after `commitConfiguration()`; if >= 0.9, downgrade front camera to binned 720p. Lowering frame rate at runtime does NOT reduce cost; format selection does.
-2. **`startRunning` on main thread** — always dispatch to `sessionQueue`; iOS 18.0/18.1 has a confirmed 10-second freeze if violated during MultiCam audio attachment.
-3. **`beginConfiguration` without guaranteed `commitConfiguration`** — always use `defer { session.commitConfiguration() }` immediately after `session.beginConfiguration()`.
-4. **AVAssetWriter state-machine violations** — stop sequence must be: stop buffer flow, `markAsFinished()` on all inputs, `finishWriting(completionHandler:)`; never append after stop, never `finishWriting` concurrently with append.
-5. **Pixel buffer pool exhaustion** — delegate callbacks must be fast; copy `CVPixelBuffer` out and release `CMSampleBuffer` immediately; use `AVAssetWriterInputPixelBufferAdaptor.pixelBufferPool` for output allocation.
-6. **Audio session misconfiguration** — set `session.automaticallyConfiguresApplicationAudioSession = false` and explicitly configure `AVAudioSession` before adding inputs; observe `AVAudioSessionInterruptionNotification`.
-7. **Swift 6 concurrency vs. GCD AVFoundation** — design a `@globalActor CameraActor` before writing any AVFoundation code; do not mark `CameraManager` as `@MainActor`.
+2. **`CameraManager`** — add `supports4K: Bool` observable property. Add `detect4KCapability()` called once after `commitConfiguration()`: performs a trial configuration (4K back + lowest-cost front), reads `hardwareCost`, reverts, publishes result on main thread. Also add `hardwareCost > 1.0` revert guard inside `applyResolutionFormat` — existing code only logs at >= 0.9 but does not revert.
+
+3. **`QualitySettingsSheet`** — add `supports4K: Bool` parameter. Filter `OutputResolution.allCases` to exclude `.uhd4K` when `supports4K == false`. Add storage hint label below resolution picker. Sheet height stays at 260pt.
+
+4. **`MovieRecorder`** — codec selection: HEVC when `settings.resolution == .uhd4K`, H.264 otherwise. Use `recommendedVideoSettings(forVideoCodecType: .hevc, assetWriterOutputFileType: .mov)` as settings base, overriding width/height. `AVAssetWriterInputPixelBufferAdaptor` `sourcePixelBufferAttributes` must specify 3840×2160 — recreate from scratch, not resize.
+
+**Components with no changes:**
+- `PiPCompositor` — `outputWidth`/`outputHeight` already set by `RecordingManager.startRecording(settings:)`; compositor is resolution-agnostic
+- `RecordingManager` — already passes `settings.resolution.width/height` to compositor and recorder
+- `AppState` — reads `cameraManager.supports4K` directly via `@Observable`; no new property needed
+
+### Top Pitfalls to Avoid
+
+1. **4K hardwareCost exceeds 1.0 with front camera (Pitfalls 14, 20)** — Session stops at `startRunning()` with no user error if `hardwareCost >= 1.0`. Fix: trial configuration at startup. Never show 4K based on back-camera format alone; test the combined session cost.
+
+2. **CVPixelBufferPool undersized for 4K (Pitfall 17)** — Existing 1080p pool causes silent 1080p output or `kCVReturnWouldExceedAllocationThreshold` at recording start. Fix: recreate `MovieRecorder` and adaptor with 3840×2160 `sourcePixelBufferAttributes` when resolution changes.
+
+3. **sessionPreset assignment breaks MultiCam format (Pitfall 16)** — `session.sessionPreset = .hd3840x2160` sets `activeFormat` to a format with `isMultiCamSupported == false`. Fix: already avoided in v1.0; must stay avoided — always use `device.activeFormat` assignment directly.
+
+4. **H.264 at 4K causes encoder backpressure (Pitfall 19)** — H.264 at 4K30 requires ~90 Mbps; encoder may not sustain real-time on A12/A13 and files are impractically large. Fix: HEVC for 4K only; derive settings from `recommendedVideoSettings`.
+
+5. **PiP coordinate space not scaled for 4K (Pitfall 22)** — `pipFrame` in 1080p coordinates renders overlay in lower-left quadrant of 4K frame. Fix: `PiPCompositor` must scale `pipFrame` proportionally to output dimensions; assert buffer width matches expected in debug builds.
 
 ---
 
 ## Implications for Roadmap
 
-### Phase 1: Foundation — Permissions, Session, Live Preview
+The dependency graph is short and clear. Three sequential phases cover the full v1.1 scope.
 
-**Rationale:** Nothing else can be built without a running `AVCaptureMultiCamSession` delivering live preview on the target device. Permissions must be verified before hardware is touched. Swift 6 concurrency actor boundary must be established before any AVFoundation code is written — retrofitting is extremely painful.
+### Phase 1: Capability Detection + Conditional UI
 
-**Delivers:** App launches, requests permissions in correct order, detects hardware support, starts MultiCam session, shows live back + front camera preview with draggable PiP overlay. No recording yet.
+**Rationale:** Everything downstream depends on knowing whether 4K is viable on the current device. `OutputResolution.uhd4K` must compile before any consumer references it. These are the zero-risk items that unblock all recording work.
 
-**Addresses:** Hardware detection, all three permissions (camera, microphone, photos), live dual preview, draggable PiP overlay, pinch-to-zoom, basic orientation handling.
+**Delivers:** `OutputResolution.uhd4K` enum case; `CameraManager.supports4K` from trial configuration; `QualitySettingsSheet` conditional picker; static storage hint label
 
-**Avoids:**
-- Validate `hardwareCost` on iPhone XR immediately after `commitConfiguration()`; adjust front camera format if needed
-- Architect `sessionQueue` from the first line of `CameraManager`
-- Use `defer` for `commitConfiguration()` from first configuration call
-- Design `CameraActor` before writing any AVFoundation code
-- Device-only workflow established from day 1
+**Addresses:** Table-stakes features 1–4 (hardware gating, storage cue, picker integration, persisted setting)
 
-**Research flag:** Standard patterns — Apple AVMultiCamPiP sample code covers this phase almost entirely. Skip phase research.
+**Avoids:** Pitfalls 14, 15, 16, 20 (all incorrect capability detection paths)
+
+**Research flag:** None — detection pattern is HIGH confidence from Apple docs
 
 ---
 
-### Phase 2: Recording Pipeline — Compositor, Writer, Audio
+### Phase 2: 4K Recording Pipeline
 
-**Rationale:** The compositor and writer are independent sub-systems that should be verified standalone before being wired together. `MovieRecorder` should be tested with synthetic pixel buffers before connecting to live camera data. `PiPCompositor` correctness can be verified with two static images before live frames arrive.
+**Rationale:** Phase 1 guarantees `applyResolutionFormat(.uhd4K)` only runs on viable devices. Phase 2 wires the recording path to produce actual 4K output.
 
-**Delivers:** Tapping record starts a composited recording; tapping stop finalizes the `AVAssetWriter` and produces a valid `.mov` file in the app's temp directory. Elapsed timer displays. Countdown before recording starts. Haptic feedback on start/stop. One audio track (back camera mic).
+**Delivers:** HEVC codec selection in `MovieRecorder`; 3840×2160 `AVAssetWriterInputPixelBufferAdaptor` recreation; front camera capped at 1080p in `applyResolutionFormat`; `hardwareCost > 1.0` revert guard; `pipFrame` coordinate scaling verified in `PiPCompositor`
 
-**Addresses:** Record/stop button, countdown timer, elapsed time display, Metal compositor, AVAssetWriter pipeline, single audio track, haptic feedback.
+**Avoids:** Pitfalls 17, 18, 19, 22 (pool size, compositor performance, writer settings, coordinate space)
 
-**Avoids:**
-- `MovieRecorder` implements strict state machine with correct stop sequence
-- Frame callback copies buffer and releases `CMSampleBuffer` immediately; uses pixel buffer pool for output allocation
-- `AVAudioSession` configured before session starts; interruption handling added in this phase
-- Observe `UIApplication.willResignActiveNotification`; stop and save current recording gracefully on background
-
-**Research flag:** The Metal compositor shader is well-documented conceptually but the specific compute kernel for PiP blending (scaling, positioning, alpha compositing) may benefit from reviewing Apple's AVMultiCamPiP sample shader code directly before implementation.
+**Research flag:** Requires device validation — `hardwareCost` with 4K back + 1080p front on iPhone 17 Pro Max cannot be confirmed without running on physical hardware. Log `hardwareCost` and format list throughout.
 
 ---
 
-### Phase 3: Save, Polish, and Edge Cases
+### Phase 3: Device Validation
 
-**Rationale:** Photos save depends on a valid file from Phase 2. Polish features (corner snapping, persistent PiP position, zoom label, torch, orientation lock) are all additive and non-breaking. This phase closes all edge cases identified in pitfalls research.
+**Rationale:** All 4K behavior is hardware-specific. Simulator is useless. Phase 3 confirms Phase 1 detection correctly predicts recording viability and that performance (frame budget, thermal) is acceptable.
 
-**Delivers:** Auto-save to Photos with success toast; corner snapping on PiP drag release; persistent PiP position across sessions; zoom level label; torch toggle; orientation lock toggle; complete background-interruption handling; polished permission-denied and hardware-unsupported error screens.
+**Delivers:** Confirmed `supports4K == false` on iPhone XR; confirmed `supports4K` value on iPhone 17 Pro Max with `hardwareCost` logged; 5-minute 4K recording with no frame drops or thermal stops; graceful 4K-to-1080p fallback on non-4K device
 
-**Addresses:** Auto-save, success toast, corner snapping, `UserDefaults` PiP persistence, zoom label, torch, orientation lock, graceful error states.
+**Avoids:** Pitfall 21 (thermal `systemPressureCost` management during long recordings)
 
-**Avoids:**
-- Never delete temp file until `performChanges` completion fires with `success == true`
-- Dispatch UI updates from `performChanges` completion handler to main queue
-
-**Research flag:** Standard patterns. Skip phase research.
+**Research flag:** If iPhone 17 Pro Max returns `supports4K == false`, the pipeline is untestable until a 4K-capable device is added. Plan contingency: log full `back.formats` list with `isMultiCamSupported` values at session startup to diagnose the exact capability boundary.
 
 ---
 
 ### Phase Ordering Rationale
 
-- Session must come before compositor: cannot validate hardware cost, format selection, or frame delivery without a running session. All Phase 2 work depends on confirmed Phase 1 output.
-- Compositor before writer: `PiPCompositor` can be tested with static pixel buffers, isolating compositor bugs from writer bugs.
-- Writer verified standalone before wiring: `MovieRecorder` should produce a valid file from synthetic input before receiving compositor output.
-- Save path last: `PhotoLibrarySaver` depends only on a valid file URL and can be added after any working recording exists; deferring avoids premature Photos permission requests during development.
-- Actor boundary upfront: the Swift 6 concurrency architecture is the one decision that cannot be retrofitted without rewriting `CameraManager` from scratch.
+- Phase 1 before Phase 2: enum and detection must compile before recording pipeline can reference them; trial config check is also a prerequisite to knowing whether Phase 2 will ever run
+- Phase 2 before Phase 3: nothing to validate until the recording path exists; Phase 3 is purely observational
+- No phase requires additional framework research — all APIs are HIGH confidence from Apple docs and the v1.0 codebase has already exercised the same interfaces at 1080p
 
 ### Research Flags
 
-Phases needing deeper research during planning:
-- **Phase 2 (Metal compositor shader):** PiP blending kernel specifics — review Apple's AVMultiCamPiP sample shader before writing custom Metal code.
+**Needs device validation before declaring complete:**
+- **Phase 2/3:** Whether `back.formats` contains any format with `dims.width == 3840 && isMultiCamSupported == true` on iPhone 17 Pro Max — the single unknown that determines whether the full pipeline is exercisable
+- **Phase 3:** `hardwareCost` after applying 4K back + 1080p front on Pro hardware — must stay under 0.95 for the feature to be reliable
 
-Phases with standard patterns (skip research-phase):
-- **Phase 1:** AVMultiCamPiP Apple sample code covers session setup, format selection, and preview layer integration completely.
-- **Phase 3:** PHPhotoLibrary save, UserDefaults persistence, gesture polish — all standard iOS patterns with extensive documentation.
+**Standard patterns (no additional research needed):**
+- Phase 1 — enum extension, detection logic, conditional picker: well-understood SwiftUI + AVFoundation patterns
+- All phases — HEVC codec, `recommendedVideoSettings`, adaptor recreation: fully documented Apple APIs
 
 ---
 
@@ -169,40 +144,36 @@ Phases with standard patterns (skip research-phase):
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | Verified against Apple AVMultiCamPiP sample code, WWDC 2019 Session 249, and official Apple documentation. No ambiguity at any layer. |
-| Features | MEDIUM-HIGH | Table stakes verified against 4 comparable App Store apps. Differentiators based on App Store listings and reviews — MEDIUM for competitor feature accuracy. |
-| Architecture | HIGH | Based on Apple WWDC 2019 Session 249 and AVMultiCamPiP sample code structure. Threading model and state machine directly derived from Apple source. |
-| Pitfalls | HIGH | Most critical pitfalls have Apple documentation links, confirmed community reproduction, and open-source crash reports. iOS 18 main-thread freeze confirmed via HaishinKit community discussion. |
+| Stack | HIGH | No new frameworks; HEVC and `recommendedVideoSettings` are Apple-documented; H.264 path is validated in v1.0 |
+| Features | HIGH | Table stakes derived from Apple HIG and first-party app behavior; storage estimates from measured HEVC output data |
+| Architecture | HIGH | Component change list from direct code read of all five source files; three of five components need zero changes |
+| Pitfalls | MEDIUM | 4K-specific pitfalls are well-reasoned from WWDC 2019 and `hardwareCost` semantics; actual values at 4K on A15–A18 are unverified without a public compatibility matrix post-2019 |
 
-**Overall confidence:** HIGH
+**Overall confidence:** HIGH for implementation approach; MEDIUM for hardware outcome on specific devices
 
 ### Gaps to Address
 
-- **Hardware cost on iPhone XR at 1080p back + 720p front:** Reported as near budget ceiling but exact `hardwareCost` value with the binned front format has not been measured on a physical XR. Must be validated in Phase 1 before committing to the format configuration.
-- **iOS 18.0/18.1 `startRunning` freeze:** Community-confirmed but exact trigger conditions are not fully characterized. Deferring `startRunning` to first user gesture is the documented workaround; validate this eliminates the freeze on the target device.
-- **Haptic + audio session interaction:** `setAllowHapticsAndSystemSoundsDuringRecording(true)` is documented as required, but the interaction with `automaticallyConfiguresApplicationAudioSession = false` on `AVCaptureMultiCamSession` is unverified. Validate haptics fire correctly during recording without disrupting audio.
-- **Swift 6 strict concurrency with custom global actor + AVFoundation delegates:** Community guidance on the `@globalActor` pattern for camera apps exists but is not an official Apple pattern. Needs early validation to confirm no data-race warnings at `SWIFT_STRICT_CONCURRENCY = complete`.
+- **4K MultiCam availability on Pro hardware (A15–A18):** Log `back.formats` with `isMultiCamSupported` at session startup in Phase 1 development before writing any Phase 2 code. If iPhone 17 Pro Max returns `supports4K == false`, escalate test device requirements.
+- **`hardwareCost` value at 4K back + 1080p front:** Architecture notes a degradation ladder (4K+720p front, then 4K+480p front, then 4K back-only). Actual cost thresholds per device are unknown until measured. Phase 3 validation step must capture these values.
+- **CIContext performance at 4K on A15:** Expected to stay within 33ms frame budget on Metal, but this is projection from 1080p behavior. Instruments profiling in Phase 3 is the validation step.
 
 ---
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- Apple AVMultiCamPiP Sample Code — session setup, compositor architecture, frame synchronization
-- WWDC 2019 Session 249 "Introducing Multi-Camera Capture for iOS" — MultiCam session constraints, hardware cost
-- Apple Developer Documentation: AVCaptureMultiCamSession, AVAssetWriterInputPixelBufferAdaptor, AVCaptureDataOutputSynchronizer, CVMetalTextureCacheCreateTextureFromImage
+- [AVCaptureMultiCamSession — Apple Developer Docs](https://developer.apple.com/documentation/avfoundation/avcapturemulticamsession) — `hardwareCost`, `systemPressureCost`, `isMultiCamSupported`
+- [AVCaptureDevice.Format.isMultiCamSupported — Apple Developer Docs](https://developer.apple.com/documentation/avfoundation/avcapturedevice/format/ismulticamsupported)
+- [recommendedVideoSettings(forVideoCodecType:assetWriterOutputFileType:) — Apple Developer Docs](https://developer.apple.com/documentation/avfoundation/avcapturevideodataoutput/2867900-recommendedvideosettings)
+- [AVMultiCamPiP Apple sample code](https://developer.apple.com/documentation/AVFoundation/avmulticampip-capturing-from-multiple-cameras)
+- [WWDC 2019 Session 249 — Introducing Multi-Camera Capture for iOS](https://asciiwwdc.com/2019/sessions/249) — hardware cost model, ISP bandwidth limits, format constraints
 
 ### Secondary (MEDIUM confidence)
-- App Store listings and reviews: DualCapture, DoubleTake by Filmic, MixCam, iPhone 17 native Dual Capture (feature comparison)
-- HaishinKit.swift community discussion — iOS 18.0/18.1 startRunning main-thread freeze
-- Fatbobman: "Swift 6 Refactoring in a Camera App" — globalActor pattern for AVFoundation
-- Nonstrict.eu: "Distorted Audio when recording with AVCaptureSession" (2025) — audio session configuration
-
-### Tertiary (needs on-device validation)
-- Hardware cost headroom on iPhone XR with back 1080p + front 720p binned — requires physical device measurement
-- Haptic + automaticallyConfiguresApplicationAudioSession = false interaction — unverified combination
+- [iPhone 17 Dual Capture 4K — MacRumors Forums](https://forums.macrumors.com/threads/iphone-17-using-the-new-dual-capture-video-feature.2466908/) — confirms 4K MultiCam viability on A18 Pro
+- [About Apple ProRes on iPhone — Apple Support](https://support.apple.com/en-us/109041) — hide-when-unsupported pattern for hardware-gated features
+- [iPhone Video Size per Minute — VideoProc](https://www.videoproc.com/iphone-video-processing/iphone-video-size-per-minute.htm) — HEVC storage reference (~400 MB/min at 4K30)
+- [WWDC 2020 Session 10008 — Optimize the Core Image Pipeline for Your Video App](https://developer.apple.com/videos/play/wwdc2020/10008/) — CIContext singleton, `cacheIntermediates: false` for video
 
 ---
-
-*Research completed: 2026-05-16*
+*Research completed: 2026-05-19*
 *Ready for roadmap: yes*

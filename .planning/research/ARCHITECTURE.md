@@ -1,323 +1,336 @@
-# Architecture Research — DualVideo
+# Architecture Research — 4K Integration (v1.1)
 
-**Researched:** 2026-05-16
-**Confidence:** HIGH — based on Apple WWDC 2019 session 249, Apple AVMultiCamPiP sample code structure, and verified AVFoundation threading documentation.
-
----
-
-## Component Map
-
-| Component | Layer | Responsibility | Owns |
-|-----------|-------|---------------|------|
-| `ContentView` | View | Root layout: full-screen back preview + PiP overlay + controls | Nothing stateful |
-| `RecordingControlsView` | View | Countdown display, record/stop button, zoom indicator | Nothing stateful |
-| `CameraPreviewView` | View | `UIViewRepresentable` wrapper around `AVCaptureVideoPreviewLayer` | One `UIView` per camera |
-| `RecordingViewModel` | ViewModel | Recording state machine, gesture handling, countdown timer, error presentation | `@Observable`, refs `CameraManager` |
-| `CameraManager` | Service | All AVFoundation logic: session lifecycle, inputs, outputs, compositor, writer | `AVCaptureMultiCamSession`, `PiPCompositor`, `MovieRecorder` |
-| `PiPCompositor` | Service | Merges back + front pixel buffers into one composited frame | Metal or Core Image render pipeline |
-| `MovieRecorder` | Service | `AVAssetWriter` lifecycle: start, append buffers, finish, write to temp file | `AVAssetWriter`, `AVAssetWriterInput` |
-| `PhotoLibrarySaver` | Service | Takes a file URL, saves to `PHPhotoLibrary`, deletes temp file | No session state |
-| `PermissionManager` | Service | Checks and requests camera, microphone, photo library authorization | No capture state |
-
-### Component Boundary Rules
-
-- Views never import AVFoundation. They observe `RecordingViewModel` only.
-- `RecordingViewModel` never directly touches `AVCaptureSession` or buffers. It calls `CameraManager` methods and reads published state.
-- `CameraManager` never imports SwiftUI. It publishes state via `@Observable` properties that the ViewModel reads.
-- `PiPCompositor` and `MovieRecorder` are owned and called only by `CameraManager`. They are internal implementation details — the ViewModel does not know they exist.
-- `PhotoLibrarySaver` is called by `CameraManager` after `MovieRecorder` finishes (or optionally by ViewModel as a thin coordination step).
+**Researched:** 2026-05-19
+**Milestone:** v1.1 — 4K Resolution Support
+**Confidence:** HIGH for component mapping (code read directly). MEDIUM for hardware cost specifics (Apple docs + WWDC 2019; device-specific 4K MultiCam availability has not changed materially per available public documentation through 2025).
 
 ---
 
-## Data Flow
+## Scope
 
-### Live Preview Path (no-copy, hardware accelerated)
+This document answers four specific questions about integrating 4K into the existing dual-camera pipeline:
 
-```
-Hardware sensors
-  → AVCaptureMultiCamSession (back input port → back preview connection)
-                             (front input port → front preview connection)
-  → AVCaptureVideoPreviewLayer (back)  — rendered by CameraPreviewView (full-screen)
-  → AVCaptureVideoPreviewLayer (front) — rendered by CameraPreviewView (PiP overlay)
-```
+1. Which components need to change for 4K?
+2. Where does 4K capability detection live?
+3. How does the `applyResolutionFormat` flow need to extend?
+4. What AVCaptureMultiCamSession hardware cost constraints limit 4K + front camera simultaneous capture?
 
-Preview layers are CALayer-backed and hardware-accelerated. No CPU copy occurs on this path.
+---
 
-### Recording Path (pixel buffer compositor)
+## Existing Architecture (as-built, v1.0)
 
-```
-AVCaptureMultiCamSession
-  → AVCaptureVideoDataOutput (back)  ─┐
-  → AVCaptureVideoDataOutput (front) ─┤→ AVCaptureDataOutputSynchronizer
-                                       │    (delivers both frames in one callback,
-                                       │     same presentation timestamp)
-                                       ↓
-                               PiPCompositor.mix(back:front:pipFrame:)
-                                       │  (Metal shader or CIFilter overlay)
-                                       ↓
-                               CVPixelBuffer (composited 1080p frame)
-                                       ↓
-                               MovieRecorder.appendVideoBuffer(_:at:)
-                                       ↓
-                               AVAssetWriterInputPixelBufferAdaptor
-                                       ↓
-                               AVAssetWriter → temp .mov in app container
-```
-
-### Audio Path
+Data flows in a straight line:
 
 ```
 AVCaptureMultiCamSession
-  → AVCaptureAudioDataOutput (back mic)  ─┐
-  → AVCaptureAudioDataOutput (front mic) ─┤
-                                           │  Note: mixing two mic tracks in real-time
-                                           │  is complex. Recommended approach:
-                                           │  record ONE mic (back) during capture,
-                                           │  or use AVCaptureDataOutputSynchronizer
-                                           │  to pick the dominant audio track.
-                                           ↓
-                               MovieRecorder.appendAudioBuffer(_:at:)
-                                       ↓
-                               AVAssetWriterInput (audio track)
-                                       ↓
-                               Muxed into same temp .mov
+  └─ back camera → AVCaptureVideoDataOutput (backVideoOutput)
+  └─ front camera → AVCaptureVideoDataOutput (frontVideoOutput)
+        ↓ both delegate to PiPCompositor (dataOutputQueue)
+PiPCompositor.captureOutput(...)
+  └─ on back-camera frame: composite(back:front:pipRect:) → CVPixelBuffer
+  └─ calls onComposited(pixelBuffer, pts)
+        ↓
+RecordingManager.wireCompositor closure
+  └─ recorder.appendVideoBuffer(pixelBuffer, pts:)
+        ↓
+MovieRecorder (AVAssetWriter + AVAssetWriterInputPixelBufferAdaptor)
+  └─ H.264, pool sized to settings.resolution.width × settings.resolution.height
 ```
 
-**Audio simplification note:** True dual-mic mixing into a single real-time track requires a Core Audio mixing graph, which adds significant complexity. The simpler approach — selecting one microphone (back camera mic) for recording — satisfies the core requirement and is a Phase 1 decision. Dual-mic mixing can be added in a later phase.
+Resolution propagates via `VideoQualitySettings.resolution` (an `OutputResolution` enum). At recording start, `RecordingManager.startRecording(settings:)` sets `compositor.outputWidth/Height` and then calls `recorder.startRecording(settings:)`. The `AVAssetWriterInputPixelBufferAdaptor` pool is created synchronously inside `recorder.startRecording`, then bridged back to `compositor.pixelBufferPool`.
 
-### Save Path
+Format selection on the device is handled by `CameraManager.applyResolutionFormat(resolution:)`, which calls the private `applyFormat(to:targetLandscapeWidth:)` helper. That helper filters `device.formats` by `isMultiCamSupported && dims.width == landscapeWidth`.
 
-```
-MovieRecorder finishes writing
-  → temp file URL in app's tmp/ directory
-  → PHPhotoLibrary.shared().performChanges {
-        PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: tempURL)
+---
+
+## Components That Need to Change
+
+### 1. `OutputResolution` (VideoQualitySettings.swift) — MODIFIED
+
+**Change:** Add a `.uhd4K` case.
+
+```swift
+enum OutputResolution: String, Codable, CaseIterable, Sendable {
+    case hd720p  = "720p"
+    case hd1080p = "1080p"
+    case uhd4K   = "4K"          // NEW
+
+    var width: Int {
+        switch self {
+        case .hd720p:  return 720
+        case .hd1080p: return 1080
+        case .uhd4K:   return 2160   // portrait short side
+        }
     }
-  → on completion: delete temp file, publish .done state to ViewModel
+
+    var height: Int {
+        switch self {
+        case .hd720p:  return 1280
+        case .hd1080p: return 1920
+        case .uhd4K:   return 3840   // portrait long side
+        }
+    }
+
+    var landscapeWidth: Int {
+        switch self {
+        case .hd720p:  return 1280
+        case .hd1080p: return 1920
+        case .uhd4K:   return 3840   // landscape sensor width
+        }
+    }
+}
+```
+
+No other changes to the type are required. `VideoQualitySettings` is a `Codable` struct — adding a new enum case with a distinct raw value is backward-compatible; old persisted JSON without `"4K"` simply decodes to the default `.hd1080p`.
+
+`FrameRatePreset` does not change. 4K will be limited by hardware to 30 fps in MultiCam contexts (see hardware cost section below); the existing `.fps30` case covers this.
+
+---
+
+### 2. `CameraManager` — MODIFIED (capability detection + format selection)
+
+**New stored property:** `var supports4K: Bool = false` (observable, main-thread readable)
+
+**New private method:** `detect4KCapability()` — queries the back camera's format list on `sessionQueue` immediately after `commitConfiguration()` in `configureAndStart()`. Sets `supports4K` on main thread.
+
+**Detection logic:**
+
+```swift
+private func detect4KCapability() {
+    // Must run on sessionQueue, after commitConfiguration().
+    // A format is considered "4K-capable for MultiCam" only if:
+    //   - dims.width == 3840
+    //   - isMultiCamSupported == true
+    // Absence of such a format means 4K cannot be used without busting hardwareCost.
+    guard let back = backDevice else { return }
+    let has4K = back.formats.contains { fmt in
+        let dims = CMVideoFormatDescriptionGetDimensions(fmt.formatDescription)
+        return Int(dims.width) == 3840 && fmt.isMultiCamSupported
+    }
+    DispatchQueue.main.async { [weak self] in
+        self?.supports4K = has4K
+        logger.info("CameraManager: 4K MultiCam support detected=\(has4K)")
+    }
+}
+```
+
+This is called once, inside `configureAndStart()`, right after the existing `commitConfiguration()` + `hardwareCost` check. No session restart needed.
+
+**`applyResolutionFormat` — no logic change required.** The existing `applyFormat(to:targetLandscapeWidth:)` already:
+- Filters by `isMultiCamSupported`
+- Logs a warning and keeps the current format if no matching format is found
+
+Passing `landscapeWidth: 3840` will correctly select a 4K MultiCam-supported format if one exists, or silently fall back to the current format if not. The caller (`applyResolutionFormat`) already logs `hardwareCost` after `commitConfiguration()` and warns if cost >= 0.9. That warning is the correct behavior for 4K on constrained hardware — no new error handling is needed here.
+
+**New: post-format-change hardwareCost guard.** The existing code logs a warning at >= 0.9 but does not revert the format. For 4K, a cost > 1.0 would crash the session. Add a revert path:
+
+```swift
+// Inside applyResolutionFormat, after commitConfiguration():
+let cost = session.hardwareCost
+logger.info("CameraManager: after 4K format apply, hardwareCost=\(cost)")
+if cost > 1.0 {
+    logger.error("CameraManager: hardwareCost \(cost) > 1.0 — reverting to 1080p")
+    session.beginConfiguration()
+    if let back = backDevice {
+        applyFormat(to: back, targetLandscapeWidth: 1920)
+    }
+    // front camera revert...
+    session.commitConfiguration()
+}
 ```
 
 ---
 
-## Threading Model
+### 3. `AppState` — MODIFIED (expose `supports4K`)
 
-Three queues are required. Using more creates synchronization bugs; collapsing them blocks the UI or drops frames.
+`AppState` holds `cameraManager: CameraManager`. The UI needs to read `cameraManager.supports4K` to conditionally show the 4K option. No structural change is needed — `AppState` does not need a new property; the view reads `appState.cameraManager.supports4K` directly. However, `CameraManager` must be `@Observable` on `supports4K` (it already uses `@Observable` macro), so this is automatic.
 
-| Queue | Name | Type | What Runs On It |
-|-------|------|------|----------------|
-| Main | `DispatchQueue.main` | System | UI updates, `@Observable` property mutations that drive SwiftUI, `CALayer` preview attachment |
-| Session queue | `sessionQueue` (serial) | Private | `session.beginConfiguration/commitConfiguration`, `session.startRunning/stopRunning`, adding/removing inputs and outputs. These calls block — never run on main. |
-| Data output queue | `dataOutputQueue` (serial) | Private | `AVCaptureDataOutputSynchronizer` delegate callback, `PiPCompositor.mix()`, `MovieRecorder.appendVideoBuffer/appendAudioBuffer`. Must be serial to guarantee frame ordering. |
+---
 
-### Queue Rules
+### 4. `QualitySettingsSheet` — MODIFIED (conditional 4K display)
 
-- `session.startRunning()` blocks the calling thread. Always call from `sessionQueue`.
-- `AVCaptureVideoDataOutput.setSampleBufferDelegate(_:queue:)` — pass `dataOutputQueue`. The delegate fires on whatever queue you specify.
-- `AVAssetWriter` calls (startWriting, startSession, append, finishWriting) must all happen on the same serial queue. Using `dataOutputQueue` for append and a separate completion queue for finish is a common source of crashes — keep them on `dataOutputQueue`.
-- `AVCaptureVideoPreviewLayer` can be added to a view's layer from the main queue after `session.beginConfiguration()` is called on the session queue. Attach preview layers before `commitConfiguration()`.
-- Never mutate `@Observable` published properties from `dataOutputQueue` directly. Use `DispatchQueue.main.async { }` to hop to main for any state that drives SwiftUI.
-
-### Canonical Queue Setup in CameraManager
+**Change:** Filter the resolution picker to only show `.uhd4K` if the device supports it.
 
 ```swift
-private let sessionQueue = DispatchQueue(label: "com.dualvideo.session")
-private let dataOutputQueue = DispatchQueue(label: "com.dualvideo.dataoutput",
-                                            qos: .userInitiated)
+Picker("Resolution", selection: $settings.resolution) {
+    ForEach(OutputResolution.allCases.filter { r in
+        r != .uhd4K || cameraManager.supports4K
+    }, id: \.self) { r in
+        Text(r.rawValue).tag(r)
+    }
+}
+```
+
+The sheet needs to receive `cameraManager` (or just `supports4K: Bool`) as a parameter. Currently it takes only `@Binding var settings: VideoQualitySettings`. Add a `let supports4K: Bool` parameter.
+
+**Sheet height:** Adding a third segment to the segmented picker does not overflow the existing `.presentationDetents([.height(260)])` height. No height change needed.
+
+---
+
+### 5. `MovieRecorder` — NO CHANGE REQUIRED
+
+`AVAssetWriterInput` is configured with `AVVideoWidthKey` and `AVVideoHeightKey` from `settings.resolution.width/height`. These are already driven by `VideoQualitySettings`. Adding `.uhd4K` with width=2160, height=3840 flows through without any code change.
+
+The `AVAssetWriterInputPixelBufferAdaptor` pool is also sized from `settings.resolution.width/height`. No change required.
+
+**Codec note:** H.264 at 4K is valid on iOS and supported by `AVAssetWriter`. HEVC (H.265) would produce smaller files at 4K but requires a codec change. For v1.1, H.264 is the correct choice — it keeps the change minimal and avoids a new encoder decision. HEVC can be a future enhancement.
+
+---
+
+### 6. `PiPCompositor` — NO CHANGE REQUIRED
+
+`outputWidth` and `outputHeight` are set by `RecordingManager.startRecording(settings:)` before the pool is created. The compositor's `composite(back:front:pipRect:)` method scales the front camera to `pipRect` using `CGAffineTransform` — this is resolution-independent. The `roundedCornerMask` cache is keyed on `pipWidth`, which scales proportionally with `outputWidth`. No code changes needed.
+
+**Memory note:** A 4K CVPixelBuffer (2160×3840, BGRA) is approximately 33 MB per frame. The pixel buffer pool will hold several such buffers. This is within iOS norms for video capture on A15+ hardware but should be noted as a difference from 1080p (≈8 MB per frame).
+
+---
+
+### 7. `RecordingManager` — NO CHANGE REQUIRED
+
+`startRecording(settings:)` already reads `settings.resolution.width/height` and assigns them to `compositor.outputWidth/Height`. The `settings` parameter is passed through to `recorder.startRecording(settings:)`. Adding `.uhd4K` to `OutputResolution` flows through without any code change.
+
+---
+
+## Data Flow With 4K Added
+
+```
+AppState.init()
+  └─ cameraManager.compositor = PiPCompositor()
+
+cameraManager.startSession()  →  configureAndStart()  (sessionQueue)
+  └─ [existing] addInputs, addOutputs, addConnections, commitConfiguration
+  └─ [NEW] detect4KCapability()
+       └─ back.formats.contains { dims.width==3840 && isMultiCamSupported }
+       └─ main thread: cameraManager.supports4K = true|false
+
+QualitySettingsSheet (conditioned on supports4K)
+  └─ user selects .uhd4K
+  └─ appState.qualitySettings.resolution = .uhd4K
+  └─ onDismiss → appState.qualitySettings.save()
+  └─ cameraManager.applyResolutionFormat(resolution: .uhd4K)
+       └─ applyFormat(to: back, targetLandscapeWidth: 3840)  — existing filter: isMultiCamSupported
+       └─ applyFormat(to: front, targetLandscapeWidth: 3840) — likely falls back (front has no 4K MultiCam)
+       └─ commitConfiguration()
+       └─ [NEW] hardwareCost > 1.0 guard → revert to 1080p
+
+RecordingManager.startRecording(settings: qualitySettings)
+  └─ compositor.outputWidth = 2160, outputHeight = 3840
+  └─ recorder.startRecording(settings:)
+       └─ AVAssetWriter: AVVideoWidthKey=2160, AVVideoHeightKey=3840, H.264
+       └─ AVAssetWriterInputPixelBufferAdaptor: 2160×3840 BGRA pool
+  └─ compositor.pixelBufferPool = recorder.adaptor?.pixelBufferPool
 ```
 
 ---
 
-## State Machine
+## AVCaptureMultiCamSession Hardware Cost Constraints for 4K
 
-`RecordingViewModel` owns the state. `CameraManager` owns the session running state. These are separate.
+### What Apple Documents (MEDIUM confidence — WWDC 2019 + Apple docs; no device-specific update post-2019 found)
 
-### Session Setup States (CameraManager internal)
+`AVCaptureMultiCamSession.hardwareCost` is a Float in [0.0, 1.0+]. The session refuses to run if cost >= 1.0 after `commitConfiguration`. The ISP bandwidth is the limiting factor, not compute.
 
-```
-.uninitialized
-    → .checkingPermissions (async)
-        → .permissionDenied  [terminal — show settings prompt]
-        → .hardwareUnsupported  [terminal — show error, A12 not detected]
-        → .configuring (sessionQueue)
-            → .configurationFailed  [terminal — show error]
-            → .ready  [session running, previews live]
-```
+Factors that increase hardware cost:
+- Video resolution (the dominant factor — 4K is 4× 1080p in pixel count)
+- Frame rate
+- Number of active outputs
+- Binned vs unbinned formats (binned reduces cost at the same resolution)
 
-### Recording States (RecordingViewModel published)
+### 4K + Front Camera: The Critical Constraint
 
-```
-.idle
-    ─[tap record]→ .countdown(secondsRemaining: 3)
-                       ─[timer tick]→ .countdown(2) → .countdown(1)
-                       ─[timer fires]→ .recording(startedAt: Date)
-                                           ─[tap stop]→ .saving
-                                                            ─[write complete]→ .done(assetID: String?)
-                                                            ─[write error]→ .error(RecordingError)
-    ─[any error]→ .error(RecordingError)
-                       ─[user dismisses]→ .idle
-```
+WWDC 2019 Session 249 explicitly listed the MultiCam-supported formats for iPhone XS and XS Max. 4K (3840×2160) was **not among them**. The session stated: "We do not support 12 megapixel on N cameras. That would certainly do bad things to the phone."
 
-### State Enum
+The `multiCamSupported` property on `AVCaptureDeviceFormat` is the runtime arbiter. The existing `applyFormat(to:targetLandscapeWidth:)` already filters on `fmt.isMultiCamSupported`. If the back camera has no 4K format with `isMultiCamSupported == true`, the format selection falls back silently and 4K recording is not possible on that device.
 
-```swift
-enum RecordingState: Equatable {
-    case idle
-    case countdown(secondsRemaining: Int)
-    case recording(startedAt: Date)
-    case saving
-    case done(assetLocalIdentifier: String?)
-    case error(RecordingError)
-}
+**Expected behavior by hardware tier:**
 
-enum RecordingError: Error, Equatable {
-    case permissionDenied(PermissionType)
-    case hardwareUnsupported
-    case sessionConfigurationFailed
-    case writerSetupFailed
-    case writeFailed(underlying: String)
-    case photoLibrarySaveFailed(underlying: String)
-}
+| Device | Back 4K `isMultiCamSupported` | Front 4K `isMultiCamSupported` | Notes |
+|--------|-------------------------------|-------------------------------|-------|
+| iPhone XR (A12, min target) | Likely false | False | A12 ISP bandwidth insufficient for dual 4K |
+| iPhone 11 Pro / 12 Pro (A13–A14) | Possibly false | False | 4K MultiCam not confirmed in public sources |
+| iPhone 15 Pro / 17 Pro (A17–A18) | Possibly true | False | Pro SoC ISP may support 4K back in MultiCam — must be validated on device |
+| iPhone 17 Pro Max (A18 Pro) | Possibly true | False | Same — device validation required |
 
-enum PermissionType { case camera, microphone, photoLibrary }
-```
+**Key implication:** Even if back camera 4K has `isMultiCamSupported = true` on Pro hardware, the front camera will almost certainly not have a 4K MultiCam-supported format. The front camera in the PiP compositor is scaled down to ~28% of output width anyway. Selecting a lower-resolution format for the front (e.g., 1080p) while back is 4K is the expected configuration. The existing `applyFormat` logic already handles this: it silently keeps whatever format it found when the target width is unavailable.
 
-### Countdown Timer
+**Recommended approach:** Do not force the front camera to 4K. Apply `landscapeWidth: 3840` to the back camera only. Leave the front camera at its current format (1080p or 720p). The compositor scales the front buffer regardless of source resolution.
 
-The countdown is owned by `RecordingViewModel`. Use a `Task` with `try await Task.sleep(for: .seconds(1))` in a loop, or a `Timer.publish` stream. Do not put timer logic in `CameraManager`. The ViewModel transitions `.countdown(n)` → `.recording` and then calls `cameraManager.startRecording()`.
+This means `applyResolutionFormat` should be modified to only apply the 4K format change to the back camera, while leaving the front camera at its current format when resolution is `.uhd4K`.
+
+---
+
+## Where Capability Detection Lives
+
+**Detection belongs in `CameraManager`.** Rationale:
+
+- `CameraManager` owns `backDevice` and the session. It is the only component that can query `backDevice.formats` after the session is committed.
+- `AppState` is the correct place to *expose* the capability to the UI, but it should read it from `CameraManager.supports4K`, not compute it independently.
+- `VideoQualitySettings` must not contain detection logic — it is a pure data struct.
+- Detection must happen on `sessionQueue` after `commitConfiguration()`. `CameraManager.configureAndStart()` is already that exact location.
+
+**Detection timing:** Once, at session startup. The device's 4K MultiCam capability does not change at runtime. No need for re-detection on format changes.
 
 ---
 
 ## Build Order
 
-Dependencies flow upward. Build lower layers first.
+The dependency graph determines build order. Each item must compile before the next item that depends on it.
 
 ```
-Layer 0 — Foundation (no dependencies)
-  PermissionManager
-  RecordingState enum + RecordingError enum
+1. OutputResolution (.uhd4K case added)
+   — no dependencies other than Foundation
 
-Layer 1 — Capture Infrastructure (depends on Layer 0)
-  CameraManager (session setup, inputs, preview layers, hardware check)
-  CameraPreviewView (UIViewRepresentable — thin wrapper, no logic)
+2. CameraManager (supports4K property + detect4KCapability method)
+   — depends on OutputResolution (for landscapeWidth: 3840)
 
-Layer 2 — Recording Pipeline (depends on Layer 1)
-  MovieRecorder (AVAssetWriter wrapper)
-  PiPCompositor (pixel buffer merging)
-  [Wire CameraManager → AVCaptureDataOutputSynchronizer → PiPCompositor → MovieRecorder]
+3. QualitySettingsSheet (conditional .uhd4K display)
+   — depends on OutputResolution (ForEach over allCases) and CameraManager.supports4K
+   — the existing Picker already uses OutputResolution.allCases; adding the filter is additive
 
-Layer 3 — Save & State (depends on Layer 2)
-  PhotoLibrarySaver
-  RecordingViewModel (state machine, countdown, coordinates all of the above)
-
-Layer 4 — UI (depends on Layer 3)
-  RecordingControlsView
-  ContentView (layout: previews + controls + gestures)
+4. Integration test / manual validation on device
+   — verify supports4K is false on iPhone XR
+   — verify supports4K is true/false on iPhone 17 Pro Max (determine actual value)
+   — verify hardwareCost stays < 1.0 after 4K format selection on supporting hardware
 ```
 
-### Rationale for This Order
-
-- **CameraManager before ViewModel:** The ViewModel is thin coordination logic. You cannot test or use it without a working session.
-- **MovieRecorder before wiring compositor:** The writer needs to be verified standalone (start → append fake buffers → finish → check output file) before connecting to live camera data.
-- **PiPCompositor after MovieRecorder:** Compositor correctness can be verified by feeding it two static pixel buffers and checking the output, independent of the recording pipeline.
-- **Save path late:** PHPhotoLibrary authorization and save logic is isolated and easily added after recording produces a valid file.
-- **UI last:** SwiftUI views are thin and fast to build once the data model is stable.
+No changes to `RecordingManager`, `MovieRecorder`, or `PiPCompositor` are required. The resolution-agnostic design of those components means 4K flows through without modification.
 
 ---
 
-## MVVM Breakdown
+## Risks and Open Questions
 
-### View Layer — SwiftUI only, no AVFoundation
+### Risk 1: 4K `isMultiCamSupported = false` on all current hardware (HIGH probability on XR, LOW probability on Pro)
 
-| View | Responsibility |
-|------|---------------|
-| `ContentView` | Root ZStack: back preview fills screen, PiP overlay positioned by `@State pipPosition`, controls at bottom |
-| `CameraPreviewView` | `UIViewRepresentable`. Accepts `AVCaptureVideoPreviewLayer`. Sets `videoGravity` to `.resizeAspectFill`. No logic. |
-| `RecordingControlsView` | Displays countdown number during `.countdown` state, record/stop button, error banner. Reads from ViewModel only. |
-| `PiPOverlayView` | Draggable container around the front camera `CameraPreviewView`. Exposes drag gesture, calls `viewModel.updatePipPosition(_:)`. |
+If no device in the test set has `isMultiCamSupported = true` for 4K back camera formats, the feature cannot be validated end-to-end. The UI correctly hides the 4K option in this case. This is not a bug but limits the feature to unreleased or untested hardware.
 
-**Gestures that belong in View:** drag position (local `@State`), pinch zoom gesture recognizer (calls `viewModel.setZoom(_:)`). The ViewModel does not store raw gesture values.
+**Mitigation:** Test on iPhone 17 Pro Max first. Log `back.formats` with their `isMultiCamSupported` values at session startup during development to get ground truth.
 
-### ViewModel Layer — `@Observable`, no AVFoundation types exposed
+### Risk 2: 4K `isMultiCamSupported = true` but hardwareCost > 1.0 after adding front camera
 
-`RecordingViewModel` publishes:
-- `recordingState: RecordingState` — drives all conditional UI
-- `zoomLevel: CGFloat` — shown in a label, clamped by CameraManager's actual range
-- `pipPosition: CGPoint` — used by PiPOverlayView; stored here so it survives view re-renders
-- `errorMessage: String?` — derived from `RecordingState.error` for alert presentation
+Some Pro devices may have 4K formats with `isMultiCamSupported = true` individually, but the combined session cost with back 4K + front 1080p + two VideoDataOutputs exceeds 1.0. The new revert guard in `applyResolutionFormat` handles this.
 
-`RecordingViewModel` handles:
-- `tapRecord()` / `tapStop()` — state transitions, countdown Task
-- `setZoom(_ factor: CGFloat)` — delegates to `cameraManager.setBackCameraZoom(_:)`
-- `updatePipPosition(_ point: CGPoint)` — stores position, passes to compositor for recording
+**Mitigation:** Log `hardwareCost` immediately after committing the 4K format. If > 1.0, revert and surface an error via `sessionError` (same pattern as existing `handleError`).
 
-`RecordingViewModel` does NOT:
-- Import AVFoundation
-- Hold `AVCaptureSession`, pixel buffers, or file URLs
-- Know about queues or threading
+### Risk 3: Front camera left at higher resolution than needed wastes ISP bandwidth
 
-### CameraManager Layer — `@Observable`, encapsulates all AVFoundation
+When back camera is configured 4K, the front camera's format is unchanged (left at 1080p by the existing format application from session startup). This consumes additional ISP bandwidth that might push the total cost over the limit.
 
-Published state (read by ViewModel):
-- `sessionState: SessionState` — .uninitialized → .ready / .failed / .unsupported
-- `isRecording: Bool` — set on session queue, published to main queue
-- `backCameraPreviewLayer: AVCaptureVideoPreviewLayer`
-- `frontCameraPreviewLayer: AVCaptureVideoPreviewLayer`
-- `backCameraZoomRange: ClosedRange<CGFloat>` — exposed so ViewModel can clamp slider
+**Mitigation:** When applying 4K to the back camera, explicitly set the front camera to the lowest MultiCam-supported format that preserves reasonable PiP quality (e.g., 720p or even 480p — the front PiP is only 28% output width, so 720p is more than sufficient). This is an explicit addition to `applyResolutionFormat` for the 4K case only.
 
-Methods called by ViewModel:
-- `func configure() async` — runs permission check then session setup
-- `func startRecording(pipFrame: CGRect)` — transitions writer, starts synchronizer
-- `func stopRecording() async throws -> URL` — finalizes writer, returns temp file URL
-- `func setBackCameraZoom(_ factor: CGFloat)` — clamps and applies to `AVCaptureDevice`
+### Open Question: Does `systemPressureCost` matter for 4K?
 
-Internal, not exposed:
-- `sessionQueue`, `dataOutputQueue`
-- `AVCaptureDataOutputSynchronizer` delegate
-- `PiPCompositor` instance
-- `MovieRecorder` instance
-
-### Model Layer
-
-There is no traditional "Model" in the data-persistence sense — the app has no database or network layer. The Model role is filled by:
-- Value types: `RecordingState`, `RecordingError`, `PermissionType` enums
-- `PHAsset` local identifier (String) returned after successful save — stored transiently in `.done` state
+`AVCaptureMultiCamSession.systemPressureCost` tracks thermal/CPU pressure separately from `hardwareCost`. 4K compositing in Core Image on `dataOutputQueue` will increase CPU/GPU utilization. If thermal throttling occurs during long 4K recordings, frame drops will appear in the compositor output. This is a runtime observation question, not an architecture question — no code change addresses it at design time.
 
 ---
 
-## Preview Layer Integration Decision
+## Confidence Assessment
 
-**Recommendation: `AVCaptureVideoPreviewLayer` via `UIViewRepresentable` — not Metal.**
-
-Rationale:
-- `AVCaptureVideoPreviewLayer` is hardware-accelerated in the driver. It has near-zero latency and zero CPU copy cost for preview.
-- Metal (`MTKView`) is appropriate when you need to apply real-time visual filters to the preview itself. DualVideo does not — the live preview is for framing only.
-- The compositor (`PiPCompositor`) uses Metal or Core Image for combining pixel buffers destined for the file. That is a separate pipeline from the visible preview.
-- `AVCaptureVideoPreviewLayer` handles orientation and aspect ratio automatically on iOS 18.
-- Mixing Metal preview with a separate Metal compositor adds synchronization complexity with no user-visible benefit.
-
-The two `AVCaptureVideoPreviewLayer` instances (back full-screen, front PiP) are created by `CameraManager`, stored as published properties, and passed into two `CameraPreviewView` instances via ViewModel. The views attach the layers to their underlying `UIView.layer`.
-
----
-
-## Key Architecture Decisions and Rationale
-
-| Decision | Rationale |
-|----------|-----------|
-| `AVCaptureDataOutputSynchronizer` instead of two independent delegates | Guarantees both camera frames arrive with the same `CMTime` in a single callback. Eliminates the timestamp-matching problem you would otherwise have to solve manually in `PiPCompositor`. |
-| Separate `sessionQueue` and `dataOutputQueue` | Session configuration blocks — must not block main. Frame callbacks fire 30/60 fps — must not block session configuration. Keeping them separate prevents priority inversion. |
-| `MovieRecorder` as a separate class from `CameraManager` | Writer lifecycle (startWriting → startSession → append → finishWriting) is a distinct state machine from session lifecycle. Separation makes both independently testable and prevents the class from growing unmanageable. |
-| Temp file in app container, then `PHPhotoLibrary` save | `AVAssetWriter` requires a file URL it controls. Writing directly to Photos is not possible. The temp-then-save pattern is the only supported approach. Always delete the temp file after a successful or failed save. |
-| `@Observable` over `ObservableObject` + `@Published` | iOS 18 target means `@Observable` (introduced in iOS 17) is fully available. It provides finer-grained observation (only properties that are actually read by a view trigger re-renders), reducing unnecessary redraws in a high-frequency data app. |
-| Compositor in `CameraManager` scope, not in ViewModel | Compositor touches raw pixel buffers and runs on `dataOutputQueue`. ViewModel runs on main queue. Crossing that boundary for every frame (30–60 fps) would be catastrophically expensive. |
-
----
-
-## Sources
-
-- Apple WWDC 2019 Session 249 "Introducing Multi-Camera Capture for iOS" — https://developer.apple.com/videos/play/wwdc2019/249/
-- Apple AVMultiCamPiP sample code structure — https://developer.apple.com/documentation/AVFoundation/avmulticampip-capturing-from-multiple-cameras
-- Community reproduction of AVMultiCamPiP architecture — https://github.com/tatetate55/iOS13_camera_test/blob/master/AVMultiCamPiP/CameraViewController.swift
-- AVCaptureDataOutputSynchronizer — https://developer.apple.com/documentation/avfoundation/avcapturedataoutputsynchronizer
-- AVCaptureVideoDataOutput threading — https://developer.apple.com/documentation/avfoundation/avcapturevideodataoutput
-- AVAssetWriterInputPixelBufferAdaptor — https://developer.apple.com/documentation/avfoundation/avassetwriterinputpixelbufferadaptor
-- objc.io "Capturing Video on iOS" — https://www.objc.io/issues/23-video/capturing-video/
-- PHPhotoLibrary save pattern — https://developer.apple.com/forums/thread/658402
+| Area | Confidence | Basis |
+|------|------------|-------|
+| Component change list | HIGH | Direct code read of all five source files |
+| Detection placement (CameraManager) | HIGH | Follows existing pattern; only component with `backDevice` access post-session |
+| `OutputResolution` extension | HIGH | Additive enum case, existing consumer code is unaffected |
+| `applyFormat` flow adequacy | HIGH | Filter already uses `isMultiCamSupported`; 4K just adds a new `landscapeWidth` value |
+| 4K `isMultiCamSupported = false` on most hardware | MEDIUM | WWDC 2019 documentation; no public source confirms Pro hardware changed this |
+| Front camera should stay at 1080p/720p for 4K back | MEDIUM | Follows ISP bandwidth reasoning from Apple docs; unverified on specific hardware |
+| H.264 at 4K via AVAssetWriter | HIGH | Supported on iOS per Apple documentation |
+| MovieRecorder / PiPCompositor require no changes | HIGH | Resolution flows through via `settings.resolution.width/height`; code paths are resolution-agnostic |
