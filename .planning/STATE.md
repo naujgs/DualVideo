@@ -1,34 +1,34 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
-status: executing
-stopped_at: Phase 5 UI-SPEC approved
-last_updated: "2026-05-18T18:56:01.099Z"
-last_activity: 2026-05-18 -- Phase 05 execution started
+milestone: v1.1
+milestone_name: 4K Resolution Support
+status: planning
+stopped_at: Milestone v1.1 started — defining requirements
+last_updated: "2026-05-19T00:00:00.000Z"
+last_activity: 2026-05-19 -- Milestone v1.1 started
 progress:
-  total_phases: 6
-  completed_phases: 4
-  total_plans: 15
-  completed_plans: 13
-  percent: 87
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-05-18)
+See: .planning/PROJECT.md (updated 2026-05-19)
 
 **Core value:** Both cameras record together and the result lands in Photos as a single watchable video.
-**Current focus:** Phase 05 — ui-polish
+**Current focus:** Milestone v1.1 — 4K Resolution Support
 
 ## Current Position
 
-Phase: 05 (ui-polish) — EXECUTING
-Plan: 1 of 2
-Status: Executing Phase 05
-Last activity: 2026-05-18 -- Phase 05 execution started
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-05-19 — Milestone v1.1 started
 
 ## Performance Metrics
 
@@ -59,11 +59,9 @@ None.
 
 ### Blockers/Concerns
 
-- Liquid glass `.glassEffect()` is iOS 26+ only — need ultraThinMaterial fallback for iOS 18–25.
-- PiP corner masking in compositor requires CIImage rounded-rect mask or `AVVideoCompositionCoreAnimationTool` layer mask.
+None.
 
 ## Session Continuity
 
-Last session: 2026-05-18T18:44:49.561Z
-Stopped at: Phase 5 UI-SPEC approved
-Resume file: .planning/phases/05-ui-polish/05-UI-SPEC.md
+Last session: 2026-05-19
+Stopped at: Milestone v1.1 initialized

@@ -8,6 +8,17 @@ DualVideo is an iPhone app that records both the front and back cameras simultan
 
 Both cameras record together and the result lands in Photos as a single watchable video — that moment of capture must always work, even if every other feature is rough.
 
+## Current Milestone: v1.1 — 4K Resolution Support
+
+**Goal:** Detect whether the device's back camera supports 4K and offer it as a selectable resolution in the quality settings panel, with the full recording pipeline configured for 3840×2160 output when selected.
+
+**Target features:**
+- 4K capability detection at session startup via `AVCaptureDevice` format query
+- Conditional UI: 4K option appears in `QualitySettingsSheet` only on supported hardware
+- 4K recording pipeline: `PiPCompositor` and `MovieRecorder` configured for 3840×2160 output
+
+---
+
 ## Requirements
 
 ### Validated
@@ -29,7 +40,7 @@ Both cameras record together and the result lands in Photos as a single watchabl
 
 - App Store distribution — personal side-load only; no App Store review compliance work needed for v1
 - Camera swap (back ↔ front as foreground/background) — deferred; adds complexity to compositor
-- 4K recording — deferred; 1080p is the sweet spot for quality and file size
+- 4K recording — promoted to v1.1 milestone (hardware-gated, conditional UI)
 - Cloud sync / sharing features — not needed for personal use
 - Video trimming or editing within the app — Photos app handles that
 
@@ -80,4 +91,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-16 after Phase 01 completion — live preview, permissions, PiP drag, and pinch zoom validated on device*
+*Last updated: 2026-05-19 — Milestone v1.1 started: 4K resolution support (hardware-gated)*
