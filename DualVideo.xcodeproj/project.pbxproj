@@ -43,6 +43,8 @@
 		1A000090 /* QualitySettingsButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000090 /* QualitySettingsButton.swift */; };
 		1A000091 /* QualitySettingsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000091 /* QualitySettingsSheet.swift */; };
 		1A000094 /* ZoomIndicatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B000094 /* ZoomIndicatorView.swift */; };
+		1A0000A0 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 1B0000A0 /* Localizable.xcstrings */; };
+		1A0000A1 /* InfoPlist.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 1B0000A1 /* InfoPlist.xcstrings */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -93,6 +95,8 @@
 		1B000090 /* QualitySettingsButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QualitySettingsButton.swift; sourceTree = "<group>"; };
 		1B000091 /* QualitySettingsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QualitySettingsSheet.swift; sourceTree = "<group>"; };
 		1B000094 /* ZoomIndicatorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZoomIndicatorView.swift; sourceTree = "<group>"; };
+		1B0000A0 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		1B0000A1 /* InfoPlist.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = InfoPlist.xcstrings; sourceTree = "<group>"; };
 		1C000001 /* DualVideo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DualVideo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1C000002 /* DualVideoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DualVideoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -151,6 +155,8 @@
 			children = (
 				1B000001 /* DualVideoApp.swift */,
 				1B000006 /* Info.plist */,
+				1B0000A0 /* Localizable.xcstrings */,
+				1B0000A1 /* InfoPlist.xcstrings */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -320,6 +326,7 @@
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
+				es,
 				Base,
 			);
 			mainGroup = 1F000000;
@@ -339,6 +346,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				1A000070 /* Assets.xcassets in Resources */,
+				1A0000A0 /* Localizable.xcstrings in Resources */,
+				1A0000A1 /* InfoPlist.xcstrings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

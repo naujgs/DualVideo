@@ -9,28 +9,29 @@ final class PiPDragClampTests: XCTestCase {
     let safeAreaInsets = EdgeInsets(top: 59, leading: 0, bottom: 34, trailing: 0)
 
     func testDefaultOffsetIsZero() {
+        // Proposed .zero hits the topGuardMargin clamp → height offset equals topGuardMargin
         let result = state.clampedOffset(proposed: .zero, containerSize: containerSize, pipSize: pipSize, safeAreaInsets: safeAreaInsets)
         XCTAssertEqual(result.width, 0, accuracy: 0.5)
-        XCTAssertEqual(result.height, 0, accuracy: 0.5)
+        XCTAssertEqual(result.height, PiPOverlayState.topGuardMargin, accuracy: 0.5)
     }
 
     func testClampTopEdge() {
-        // Drag upward past top safe area — should clamp at yMin
+        // Drag upward past top safe area — should clamp at yMin (includes topGuardMargin)
         let proposed = CGSize(width: 0, height: -200)
         let result = state.clampedOffset(proposed: proposed, containerSize: containerSize, pipSize: pipSize, safeAreaInsets: safeAreaInsets)
-        // After clamping, PiP top edge = safeAreaInsets.top + margin = 59 + 12 = 71
-        // clamped yAbs == yMin == 71 → height offset == 0
-        XCTAssertEqual(result.height, 0, accuracy: 0.5, "PiP should not go above safe-area + margin")
+        // yMin = safeAreaInsets.top + margin + topGuardMargin = 59 + 12 + 44 = 115
+        // yAnchor = 59 + 12 = 71 → clampedOffsetY = 115 - 71 = topGuardMargin = 44
+        XCTAssertEqual(result.height, PiPOverlayState.topGuardMargin, accuracy: 0.5, "PiP should not go above safe-area + margin + topGuardMargin")
     }
 
     func testClampBottomEdge() {
         // Drag downward past bottom safe area
         let proposed = CGSize(width: 0, height: 1000)
         let result = state.clampedOffset(proposed: proposed, containerSize: containerSize, pipSize: pipSize, safeAreaInsets: safeAreaInsets)
-        let yMax = containerSize.height - safeAreaInsets.bottom - pipSize.height - PiPOverlayState.edgeMargin
+        let yMax = containerSize.height - safeAreaInsets.bottom - pipSize.height - PiPOverlayState.edgeMargin - PiPOverlayState.bottomGuardMargin
         let yAnchor = safeAreaInsets.top + PiPOverlayState.edgeMargin
         let expectedMaxHeightOffset = yMax - yAnchor
-        XCTAssertEqual(result.height, expectedMaxHeightOffset, accuracy: 0.5, "PiP should not go below safe-area + margin")
+        XCTAssertEqual(result.height, expectedMaxHeightOffset, accuracy: 0.5, "PiP should not go below safe-area + margin + bottomGuardMargin")
     }
 
     func testClampLeadingEdge() {

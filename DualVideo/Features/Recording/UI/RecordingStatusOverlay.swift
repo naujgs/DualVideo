@@ -23,7 +23,7 @@ struct RecordingStatusOverlay: View {
                 }
 
             // Elapsed timer MM:SS
-            Text(formattedTime)
+            Text(verbatim: formattedTime)
                 .font(.system(.body, design: .monospaced).bold())
                 .foregroundStyle(Color.white)
         }
@@ -31,7 +31,12 @@ struct RecordingStatusOverlay: View {
         .padding(.vertical, 6)
         .background(.ultraThinMaterial, in: Capsule())
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Recording — \(formattedTime)")
+        .accessibilityLabel(
+            String(
+                localized: "Recording \u{2014} \(formattedTime)",
+                comment: "VoiceOver label for the recording status indicator; formattedTime is MM:SS elapsed time"
+            )
+        )
     }
 
     private var formattedTime: String {
