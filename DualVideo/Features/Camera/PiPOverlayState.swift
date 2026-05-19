@@ -19,7 +19,7 @@ final class PiPOverlayState {
     /// Extra vertical guard — prevents PiP from sitting at the very top or very bottom.
     /// Top: keeps PiP below the status bar area. Bottom: keeps PiP above the camera controls.
     static let topGuardMargin: CGFloat = 44.0
-    static let bottomGuardMargin: CGFloat = 120.0
+    static let bottomGuardMargin: CGFloat = 80.0
 
     /// Update offset during a drag gesture, with real-time clamping.
     /// - Parameters:
