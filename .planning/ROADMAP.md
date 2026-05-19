@@ -14,6 +14,9 @@ Build DualVideo in three phases: establish reliable multi-camera preview and per
 - [ ] **Phase 6: Compositor Polish** - Apply 12pt rounded corners to the PiP overlay in the saved video compositor output.
 - [ ] **Phase 7: 4K Capability Detection and Conditional UI** - Detect 4K MultiCam viability at session startup and expose 4K as a selectable option only on hardware that passes the trial configuration check.
 - [ ] **Phase 8: 4K Recording Pipeline** - Configure the full recording path for 3840x2160 output: HEVC codec, correct pixel buffer pool, front camera capped at 1080p, PiP coordinate scaling, and hardwareCost revert guard.
+- [ ] **Phase 9: Localization Infrastructure and Code Fixes** - Configure Xcode for Spanish/English localization, create String Catalogs, and fix computed properties so all UI strings are catalog-eligible.
+- [ ] **Phase 10: Spanish Translations** - Fill all Spanish translations in both String Catalogs including permission descriptions and plural variants.
+- [ ] **Phase 11: Localization Validation** - Verify every app screen and recording workflow displays correctly in Spanish on a physical device.
 
 ## Phase Details
 
@@ -128,6 +131,40 @@ Plans:
   4. PiP overlay renders correctly positioned in the 4K output frame — no offset to lower-left quadrant.
 **Plans**: TBD
 
+### Phase 9: Localization Infrastructure and Code Fixes
+**Goal**: The Xcode project is configured for English and Spanish localization, String Catalogs exist with all UI strings cataloged, and computed string properties are fixed so the catalog is complete and accurate.
+**Depends on**: Phase 8
+**Requirements**: L10N-02, L10N-03, L10N-04, L10N-05, L10N-06, L10N-07, L10N-08
+**Success Criteria** (what must be TRUE):
+  1. Xcode Build Settings shows Spanish (es) and English (en) as supported localizations and `SWIFT_EMIT_LOC_STRINGS = YES` is set.
+  2. `Localizable.xcstrings` and `InfoPlist.xcstrings` exist in the project bundle and open without errors in Xcode's String Catalog editor.
+  3. A build produces no "missing translation" warnings for English strings — all `Text("literal")` and `Button("literal")` call sites appear in the catalog.
+  4. `blockedMessage` and `storageEstimate` computed properties use `String(localized:)` and their keys appear in the catalog.
+  5. Technical labels (fps values, resolution names, elapsed timer) are marked `Text(verbatim:)` and do not appear as untranslated entries in the catalog.
+**Plans**: TBD
+
+### Phase 10: Spanish Translations
+**Goal**: Every user-visible string in the app has a correct Spanish translation in the appropriate catalog, including permission descriptions and plural-sensitive storage estimates.
+**Depends on**: Phase 9
+**Requirements**: L10N-01, L10N-09, L10N-10, L10N-11
+**Success Criteria** (what must be TRUE):
+  1. All ~32 strings in `Localizable.xcstrings` have a non-empty Spanish translation — the catalog shows zero untranslated entries for the `es` locale.
+  2. All three permission usage descriptions in `InfoPlist.xcstrings` have Spanish translations that appear in the iOS permission prompt when the device language is Spanish.
+  3. The storage estimate label shows "1 min restante" for singular and "N mins restantes" for plural in Spanish — both plural variants are present in the catalog.
+**Plans**: TBD
+
+### Phase 11: Localization Validation
+**Goal**: Every screen and workflow in the app functions correctly and displays only Spanish text when the device language is set to Spanish.
+**Depends on**: Phase 10
+**Requirements**: L10N-12, L10N-13
+**Success Criteria** (what must be TRUE):
+  1. With device language set to Spanish, all app screens (camera view, quality panel, permissions flow, countdown overlay, alerts, unsupported-device view) display Spanish text — no English strings are visible.
+  2. A complete recording cycle (grant permissions, start preview, record, stop, save to Photos) completes without displaying any untranslated English strings.
+  3. Error states (permission denied, save failure) display Spanish alert text when the device language is Spanish.
+  4. Switching the device back to English restores all strings to English with no missing or blank labels.
+**Plans**: TBD
+**UI hint**: yes
+
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |
@@ -140,3 +177,6 @@ Plans:
 | 6. Compositor Polish | 0/? | Not started | — |
 | 7. 4K Capability Detection and Conditional UI | 0/? | Not started | — |
 | 8. 4K Recording Pipeline | 0/? | Not started | — |
+| 9. Localization Infrastructure and Code Fixes | 0/? | Not started | — |
+| 10. Spanish Translations | 0/? | Not started | — |
+| 11. Localization Validation | 0/? | Not started | — |

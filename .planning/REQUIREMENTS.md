@@ -118,13 +118,27 @@
 | K4-05 | Phase 7 | Pending |
 | K4-03 | Phase 8 | Pending |
 | K4-04 | Phase 8 | Pending |
+| L10N-02 | Phase 9 | Pending |
+| L10N-03 | Phase 9 | Pending |
+| L10N-04 | Phase 9 | Pending |
+| L10N-05 | Phase 9 | Pending |
+| L10N-06 | Phase 9 | Pending |
+| L10N-07 | Phase 9 | Pending |
+| L10N-08 | Phase 9 | Pending |
+| L10N-01 | Phase 10 | Pending |
+| L10N-09 | Phase 10 | Pending |
+| L10N-10 | Phase 10 | Pending |
+| L10N-11 | Phase 10 | Pending |
+| L10N-12 | Phase 11 | Pending |
+| L10N-13 | Phase 11 | Pending |
 
 **Coverage:**
 - v1 requirements: 15 total
 - v1.1 requirements: 5 total
-- Mapped to phases: 15 (v1) + 5 (v1.1)
+- v1.4 requirements: 13 total
+- Mapped to phases: 15 (v1) + 5 (v1.1) + 13 (v1.4)
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-05-16*
-*Last updated: 2026-05-19 — v1.4 requirements added (L10N-01 through L10N-13)*
+*Last updated: 2026-05-19 — v1.4 traceability added (L10N-01 through L10N-13 mapped to phases 9–11)*

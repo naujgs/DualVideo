@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Language / Localization
 status: planning
-stopped_at: Milestone v1.4 started — defining requirements
+stopped_at: Milestone v1.4 roadmap created — phases 9, 10, 11 defined
 last_updated: "2026-05-19T00:00:00.000Z"
 last_activity: 2026-05-19
 progress:
-  total_phases: 0
-  completed_phases: 0
+  total_phases: 11
+  completed_phases: 4
   total_plans: 0
   completed_plans: 0
   percent: 0
@@ -25,9 +25,9 @@ See: .planning/PROJECT.md (updated 2026-05-19)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: Phase 9 (next to plan)
 Plan: —
-Status: Defining requirements
+Status: Roadmap created — ready for /gsd-plan-phase 9
 Last activity: 2026-05-19
 
 ## Performance Metrics
@@ -56,6 +56,10 @@ Decisions are logged in PROJECT.md Key Decisions table.
 - [v1.1 Roadmap]: Front camera stays at 1080p when back records 4K — ISP bandwidth ceiling; asymmetric configuration is the correct approach.
 - [v1.1 Roadmap]: HEVC required for 4K (not H.264) — use recommendedVideoSettings API to derive bitrate; avoid hardcoded values.
 - [v1.1 Roadmap]: QualitySettingsSheet hides (not disables) 4K option on non-capable hardware — per Apple HIG pattern for hardware-gated features.
+- [v1.4 Roadmap]: String Catalogs (xcstrings) used instead of legacy .strings files — SWIFT_EMIT_LOC_STRINGS = YES enables auto-extraction of Text/Button literals.
+- [v1.4 Roadmap]: Computed string properties (blockedMessage, storageEstimate) require explicit String(localized:) conversion — SwiftUI auto-extraction does not reach computed properties.
+- [v1.4 Roadmap]: Technical labels (fps, resolution names, elapsed timer) marked Text(verbatim:) to suppress spurious catalog warnings — these must never be translated.
+- [v1.4 Roadmap]: No in-app language picker — app follows iOS system language automatically via standard Foundation localization.
 
 ### Pending Todos
 
@@ -66,8 +70,9 @@ None.
 - iPhone XR (A12) is confirmed as non-4K-capable for MultiCam — useful as negative test only.
 - 4K MultiCam support on iPhone 17 Pro Max (A18 Pro) is MEDIUM confidence — requires device validation in Phase 8.
 - If iPhone 17 Pro Max returns supports4K == false, Phase 8 pipeline is untestable until a confirmed 4K-capable device is added. Log full back.formats list at session startup to diagnose.
+- Phase 11 (localization validation) requires a physical device with Spanish set as system language — Simulator is not sufficient for camera validation, and language switching must be done in iOS Settings.
 
 ## Session Continuity
 
 Last session: 2026-05-19
-Stopped at: Milestone v1.1 roadmap created — next step is /gsd-plan-phase 7
+Stopped at: Milestone v1.4 roadmap created — next step is /gsd-plan-phase 9
