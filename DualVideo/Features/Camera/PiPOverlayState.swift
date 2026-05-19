@@ -131,7 +131,7 @@ final class PiPOverlayState {
         case 1: targetOffset = CGSize(width: xLeft,  height: yTop)
         case 2: targetOffset = CGSize(width: xRight, height: yBottom)
         case 3: targetOffset = CGSize(width: xLeft,  height: yBottom)
-        default: targetOffset = .zero  // index 0: top-right default
+        default: targetOffset = CGSize(width: xRight, height: yTop)  // index 0: top-right with guard margin
         }
         offset = targetOffset
         baseOffset = targetOffset

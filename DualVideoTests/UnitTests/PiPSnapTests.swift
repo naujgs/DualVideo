@@ -9,13 +9,14 @@ final class PiPSnapTests: XCTestCase {
 
     var margin: CGFloat { PiPOverlayState.edgeMargin }
 
-    // Expected corner offsets (computed from formula):
+    // Expected corner offsets (computed from formula, including guard margins):
     //   xLeft = -(390 - 109 - 24) = -257
-    //   yBottom = 844 - 59 - 34 - 146 - 24 = 581
-    var expectedTopRight: CGSize { .zero }
-    var expectedTopLeft:  CGSize { CGSize(width: -(container.width - pip.width - 2*margin), height: 0) }
-    var expectedBottomRight: CGSize { CGSize(width: 0, height: container.height - safe.top - safe.bottom - pip.height - 2*margin) }
-    var expectedBottomLeft:  CGSize { CGSize(width: -(container.width - pip.width - 2*margin), height: container.height - safe.top - safe.bottom - pip.height - 2*margin) }
+    //   yTop  = topGuardMargin = 44
+    //   yBottom = 844 - 59 - 34 - 146 - 24 - 80 (bottomGuardMargin) = 501
+    var expectedTopRight:    CGSize { CGSize(width: 0, height: PiPOverlayState.topGuardMargin) }
+    var expectedTopLeft:     CGSize { CGSize(width: -(container.width - pip.width - 2*margin), height: PiPOverlayState.topGuardMargin) }
+    var expectedBottomRight: CGSize { CGSize(width: 0, height: container.height - safe.top - safe.bottom - pip.height - 2*margin - PiPOverlayState.bottomGuardMargin) }
+    var expectedBottomLeft:  CGSize { CGSize(width: -(container.width - pip.width - 2*margin), height: container.height - safe.top - safe.bottom - pip.height - 2*margin - PiPOverlayState.bottomGuardMargin) }
 
     override func setUp() {
         super.setUp()
@@ -68,10 +69,10 @@ final class PiPSnapTests: XCTestCase {
     }
 
     func testRestoreDefaultIsZero() {
-        // No UserDefaults entry — index defaults to 0 (top-right = .zero)
+        // No UserDefaults entry — index defaults to 0 (top-right with topGuardMargin)
         let state = PiPOverlayState()
         state.restorePersistedCorner(containerSize: container, pipSize: pip, safeAreaInsets: safe)
         XCTAssertEqual(state.offset.width, 0, accuracy: 1)
-        XCTAssertEqual(state.offset.height, 0, accuracy: 1)
+        XCTAssertEqual(state.offset.height, PiPOverlayState.topGuardMargin, accuracy: 1)
     }
 }
