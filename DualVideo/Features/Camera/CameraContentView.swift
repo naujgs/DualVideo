@@ -190,6 +190,7 @@ struct CameraContentView: View {
             }
         }
         .ignoresSafeArea()
+        .defersSystemGestures(on: .bottom)
         .onChange(of: cameraManager.isSessionRunning) { _, isRunning in
             if isRunning {
                 Task { @MainActor in
