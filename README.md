@@ -4,6 +4,10 @@ An iPhone app that records from both cameras simultaneously and composites them 
 
 The back camera fills the screen. The front camera appears as a draggable overlay. Hit record — one file, both perspectives.
 
+![platform](https://img.shields.io/badge/platform-iOS%2018%2B-blue)
+![swift](https://img.shields.io/badge/swift-6-orange)
+![license](https://img.shields.io/badge/license-personal%20use-lightgrey)
+
 ---
 
 ## Features
@@ -92,6 +96,6 @@ Properties shared across queues are marked `nonisolated(unsafe)` with explicit a
 
 ## About
 
-A personal vibe coding project built by two cousins — **Sergio & Juan** — as an excuse to dig into `AVCaptureMultiCamSession` and ship something real on our own phones.
+A personal vibe coding project by two cousins — **Sergio & Juan** — who just wanted to experience building something together and ended up shipping a real iOS app.
 
 No App Store. No monetization. Just a useful little tool we wanted to exist.
