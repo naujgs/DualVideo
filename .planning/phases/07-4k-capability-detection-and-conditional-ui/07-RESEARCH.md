@@ -453,22 +453,25 @@ struct QualitySettingsSheet: View {
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **What is the exact sheet height needed for 3-segment picker + storage label?**
    - What we know: Current sheet is 260pt for 2-segment picker; storage label adds at least one text row.
    - What's unclear: Whether 320pt is enough or over-specified.
    - Recommendation: Verify on physical device in Plan 1; use `.height(320)` as starting point.
+   - **RESOLVED:** `.height(320)` adopted in Plan 02 Task 2 as starting point; executor verifies on device.
 
 2. **Does `detect4KCapability()` need to log formats at INFO or DEBUG level?**
    - What we know: STATE.md flags 4K MultiCam availability on iPhone 17 Pro Max as MEDIUM confidence and explicitly says "Log full back.formats list at session startup to diagnose."
    - What's unclear: Whether DEBUG logs are visible in production builds (they are suppressed by default in os.log unless the log level is raised).
    - Recommendation: Log the capability result at INFO and individual format entries at DEBUG. Developers can enable DEBUG with `log config` when diagnosing.
+   - **RESOLVED:** INFO for capability result (`supports4K=true/false`), DEBUG for per-format list — implemented in Plan 01 Task 2.
 
 3. **Should the storage estimate update when the quality sheet is already open and free space is being used by another app?**
    - What we know: K4-05 says "live estimate" — this implies updates, but the sheet is a short-lived modal.
    - What's unclear: Whether a second `onAppear` or a timer is needed for live updates.
    - Recommendation: Single read on `.onAppear` is sufficient. The sheet is dismissed before recording starts; free space changes during the 2–10 seconds the sheet is open are negligible for this estimate.
+   - **RESOLVED:** Single `.onAppear` read — implemented in Plan 02 Task 2.
 
 ---
 
