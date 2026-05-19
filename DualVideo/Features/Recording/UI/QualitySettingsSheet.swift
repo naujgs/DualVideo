@@ -14,6 +14,7 @@ struct QualitySettingsSheet: View {
     let onDismiss: () -> Void
 
     @State private var freeBytes: Int64 = 0   // K4-05: loaded once in .onAppear
+    @State private var storageLoaded: Bool = false
 
     var body: some View {
         VStack(spacing: 24) {
@@ -42,8 +43,8 @@ struct QualitySettingsSheet: View {
                 }
                 .pickerStyle(.segmented)
 
-                // K4-05: Storage estimate label — visible once freeBytes is loaded
-                if freeBytes > 0 {
+                // K4-05: Storage estimate label — visible once onAppear has fired
+                if storageLoaded {
                     Text(storageEstimate)
                         .font(.system(.caption2))
                         .foregroundStyle(freeBytes < 1_000_000_000 ? .orange : .secondary)
@@ -75,6 +76,7 @@ struct QualitySettingsSheet: View {
             let values = try? url.resourceValues(
                 forKeys: [.volumeAvailableCapacityForImportantUsageKey])
             freeBytes = values?.volumeAvailableCapacityForImportantUsage ?? 0
+            storageLoaded = true
         }
         .onDisappear {
             onDismiss()
@@ -92,7 +94,7 @@ struct QualitySettingsSheet: View {
         case .hd1080p: bitrateBytesPerSec = 16_000_000 / 8
         case .uhd4K:   bitrateBytesPerSec = 45_000_000 / 8
         }
-        guard bitrateBytesPerSec > 0, freeBytes > 0 else {
+        guard freeBytes > 0 else {
             return String(localized: "Storage unavailable",
                           comment: "Shown when free storage cannot be determined")
         }
