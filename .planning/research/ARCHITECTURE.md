@@ -1,324 +1,421 @@
-# Architecture Research — 4K Integration (v1.1)
+# Architecture Research — iOS Localization (v1.4)
 
 **Researched:** 2026-05-19
-**Milestone:** v1.1 — 4K Resolution Support
-**Confidence:** HIGH for component mapping (code read directly). MEDIUM for hardware cost specifics (Apple docs + WWDC 2019; device-specific 4K MultiCam availability has not changed materially per available public documentation through 2025).
+**Milestone:** v1.4 — Language / Localization
+**Confidence:** HIGH for SwiftUI Text() behavior, String Catalog mechanics, and component integration (Apple documentation + current sources). MEDIUM for ViewModel string return patterns (community consensus, no single authoritative Apple reference).
 
 ---
 
 ## Scope
 
-This document answers four specific questions about integrating 4K into the existing dual-camera pipeline:
+This document answers six specific questions for adding English + Spanish localization to an existing SwiftUI MVVM app:
 
-1. Which components need to change for 4K?
-2. Where does 4K capability detection live?
-3. How does the `applyResolutionFormat` flow need to extend?
-4. What AVCaptureMultiCamSession hardware cost constraints limit 4K + front camera simultaneous capture?
-
----
-
-## Existing Architecture (as-built, v1.0)
-
-Data flows in a straight line:
-
-```
-AVCaptureMultiCamSession
-  └─ back camera → AVCaptureVideoDataOutput (backVideoOutput)
-  └─ front camera → AVCaptureVideoDataOutput (frontVideoOutput)
-        ↓ both delegate to PiPCompositor (dataOutputQueue)
-PiPCompositor.captureOutput(...)
-  └─ on back-camera frame: composite(back:front:pipRect:) → CVPixelBuffer
-  └─ calls onComposited(pixelBuffer, pts)
-        ↓
-RecordingManager.wireCompositor closure
-  └─ recorder.appendVideoBuffer(pixelBuffer, pts:)
-        ↓
-MovieRecorder (AVAssetWriter + AVAssetWriterInputPixelBufferAdaptor)
-  └─ H.264, pool sized to settings.resolution.width × settings.resolution.height
-```
-
-Resolution propagates via `VideoQualitySettings.resolution` (an `OutputResolution` enum). At recording start, `RecordingManager.startRecording(settings:)` sets `compositor.outputWidth/Height` and then calls `recorder.startRecording(settings:)`. The `AVAssetWriterInputPixelBufferAdaptor` pool is created synchronously inside `recorder.startRecording`, then bridged back to `compositor.pixelBufferPool`.
-
-Format selection on the device is handled by `CameraManager.applyResolutionFormat(resolution:)`, which calls the private `applyFormat(to:targetLandscapeWidth:)` helper. That helper filters `device.formats` by `isMultiCamSupported && dims.width == landscapeWidth`.
+1. Where do localized strings live, and which format to use?
+2. How does `SwiftUI.Text()` automatic localization work?
+3. What needs to change in Views vs ViewModels?
+4. Where does `InfoPlist.strings` fit?
+5. What new files and folders get created?
+6. What is the correct build order for this app?
 
 ---
 
-## Components That Need to Change
+## String Storage: String Catalog (Localizable.xcstrings)
 
-### 1. `OutputResolution` (VideoQualitySettings.swift) — MODIFIED
+**Use String Catalogs. Do not use `.strings` files.**
 
-**Change:** Add a `.uhd4K` case.
+Rationale:
+- This project targets iOS 18.0+, Xcode 15+ is the build tool. String Catalogs are the current Apple-recommended format (WWDC 2023).
+- A single `Localizable.xcstrings` JSON file holds all languages. No per-language files to sync manually.
+- Xcode auto-extracts keys from SwiftUI `Text("literal")` and `String(localized:)` calls during each build when **"Use Compiler to Extract Swift Strings"** build setting is enabled.
+- At build time Xcode compiles `.xcstrings` down to `.strings` / `.stringsdict` files inside each `.lproj` folder, so the compiled output is backward-compatible with any iOS version. The file format itself only requires Xcode 15+ to edit — the deployment target is unaffected.
+- Missing translations are automatically flagged as "New" in the catalog editor, giving visibility into untranslated strings at a glance.
+
+**One file covers all surface types except `InfoPlist` keys.** System permission strings (`NSCameraUsageDescription`, etc.) require a separate `InfoPlist.xcstrings` (Xcode 15+) or, equivalently, per-language `InfoPlist.strings` files. These live in the same `.lproj` folders but are a separate catalog.
+
+---
+
+## New Files and Folder Structure
+
+Starting from zero localization infrastructure, the following get created:
+
+```
+DualVideo/
+  App/
+    Info.plist                       [MODIFIED — keys moved to InfoPlist.xcstrings]
+    InfoPlist.xcstrings              [NEW — permission description strings, en + es]
+  Resources/                         [NEW folder, or placed alongside App/]
+    Localizable.xcstrings            [NEW — all UI strings, en + es]
+```
+
+Xcode adds the language reference in the project file. At build time it synthesizes:
+
+```
+DualVideo.app/
+  en.lproj/
+    Localizable.strings              [compiled from xcstrings]
+    InfoPlist.strings                [compiled from InfoPlist.xcstrings]
+  es.lproj/
+    Localizable.strings
+    InfoPlist.strings
+```
+
+You never create or edit these `.lproj` folders or `.strings` files manually. They are build artifacts.
+
+**How to add languages in Xcode:** Project settings → Info tab → Localizations → "+" → Spanish. This enables Xcode to extract Spanish slots in the catalog editor.
+
+---
+
+## How SwiftUI Text() Automatic Localization Works
+
+This is the most important architectural fact for this milestone. It determines which strings get localization "for free" and which need explicit work.
+
+### The Rule
+
+`Text()` accepts two distinct initializer overloads:
 
 ```swift
-enum OutputResolution: String, Codable, CaseIterable, Sendable {
-    case hd720p  = "720p"
-    case hd1080p = "1080p"
-    case uhd4K   = "4K"          // NEW
+// Overload 1: string literal → LocalizedStringKey → catalog lookup
+Text("Save Failed")            // ✅ localizes automatically
 
-    var width: Int {
-        switch self {
-        case .hd720p:  return 720
-        case .hd1080p: return 1080
-        case .uhd4K:   return 2160   // portrait short side
-        }
-    }
+// Overload 2: String variable → displayed verbatim, no lookup
+let msg: String = "Save Failed"
+Text(msg)                      // ❌ displays the raw String, no catalog lookup
+```
 
-    var height: Int {
-        switch self {
-        case .hd720p:  return 1280
-        case .hd1080p: return 1920
-        case .uhd4K:   return 3840   // portrait long side
-        }
-    }
+SwiftUI converts string literals to `LocalizedStringKey` at compile time via `ExpressibleByStringLiteral`. The key is the literal text itself. At runtime, `LocalizedStringKey` triggers a lookup in `Localizable.strings` (compiled from the catalog) for the current device locale.
 
-    var landscapeWidth: Int {
-        switch self {
-        case .hd720p:  return 1280
-        case .hd1080p: return 1920
-        case .uhd4K:   return 3840   // landscape sensor width
-        }
+Xcode's build phase ("Use Compiler to Extract Swift Strings") scans source for string literals passed to `Text()`, `Button()`, `Label()`, `Picker()`, `Toggle()`, `.alert()`, and similar SwiftUI view constructors, and populates the `.xcstrings` catalog with those keys automatically.
+
+### String Interpolation in Text()
+
+`Text("Could not save recording: \(msg)")` works as a localized interpolated string. The key stored in the catalog is `"Could not save recording: %@"`. The translated Spanish entry replaces `%@` in the correct position for the target language's word order. This is critical: do not build these strings by concatenation.
+
+### Text(verbatim:) to Opt Out
+
+Any literal you intentionally do not want extracted (debug text, formatted values that are not translatable):
+
+```swift
+Text(verbatim: "02:34")         // never extracted, always displayed as-is
+Text(String(format: "%02d:%02d", m, s))  // String variable → same, not extracted
+```
+
+The `RecordingStatusOverlay.formattedTime` computed property returns `String(format: "%02d:%02d", ...)`. This is displayed via `Text(formattedTime)` — a String variable — so it is never extracted and requires no localization work. Correct behavior.
+
+### accessibilityLabel and accessibilityValue
+
+`accessibilityLabel("Stop Recording")` accepts a string literal and behaves identically to `Text()` — it is extracted to the catalog automatically. String variable arguments are not localized.
+
+---
+
+## Integration Points: What Changes in Views vs ViewModels
+
+### Views — What Changes
+
+**Pattern: String literals already present in views localize automatically once the catalog is populated.** No code change to the view itself is needed for most cases. The work is adding translations to the catalog.
+
+However, two view-side patterns require code changes:
+
+**1. String variable arguments to Text() that contain user-facing copy.**
+
+In `RootView.swift`, `PermissionsBlockedView.blockedMessage` is a computed `var` returning a `String`, passed as `Text(blockedMessage)`. This does NOT localize because it goes through the String-variable overload.
+
+Fix: change the computed property to return `LocalizedStringKey` or inline the switch into the view body as `Text("camera.permission.denied")` with a separate helper. The cleanest pattern for this app's scale:
+
+```swift
+// Before — does not localize
+private var blockedMessage: String {
+    switch deniedPermission {
+    case "camera": return "DualVideo needs camera access..."
+    ...
     }
+}
+Text(blockedMessage)
+
+// After — localizes correctly
+private var blockedMessageKey: LocalizedStringKey {
+    switch deniedPermission {
+    case "camera": return "permission.denied.camera"
+    ...
+    }
+}
+Text(blockedMessageKey)
+```
+
+Catalog entries use the key `"permission.denied.camera"` with full translated sentences as values in both `en` and `es`.
+
+**2. `QualitySettingsSheet.storageEstimate` computed String property.**
+
+`storageEstimate` returns strings like `"~\(minutes) min remaining"`, `"Low storage"`, `"<1 min remaining"`. These are displayed via `Text(storageEstimate)` — the String-variable overload. They will not localize automatically.
+
+Fix options in order of preference:
+- Convert `storageEstimate` to return `LocalizedStringKey` using `String(localized:)` for each branch:
+
+```swift
+private var storageEstimateKey: LocalizedStringKey {
+    if freeBytes < 1_000_000_000 { return "storage.low" }
+    let minutes = Int(freeBytes / bitrateBytesPerSec) / 60
+    if minutes == 0 { return "storage.less_than_one_min" }
+    if minutes < 60 { return LocalizedStringKey("storage.minutes_remaining \(minutes)") }
+    return LocalizedStringKey("storage.hours_remaining \(minutes / 60)")
 }
 ```
 
-No other changes to the type are required. `VideoQualitySettings` is a `Codable` struct — adding a new enum case with a distinct raw value is backward-compatible; old persisted JSON without `"4K"` simply decodes to the default `.hd1080p`.
+Catalog entries use `%lld` interpolation placeholders for the numeric arguments. The Spanish translator receives the full sentence structure and can reorder "45 min restante" as the language requires.
 
-`FrameRatePreset` does not change. 4K will be limited by hardware to 30 fps in MultiCam contexts (see hardware cost section below); the existing `.fps30` case covers this.
-
----
-
-### 2. `CameraManager` — MODIFIED (capability detection + format selection)
-
-**New stored property:** `var supports4K: Bool = false` (observable, main-thread readable)
-
-**New private method:** `detect4KCapability()` — queries the back camera's format list on `sessionQueue` immediately after `commitConfiguration()` in `configureAndStart()`. Sets `supports4K` on main thread.
-
-**Detection logic:**
+**3. Alert message in CameraContentView.**
 
 ```swift
-private func detect4KCapability() {
-    // Must run on sessionQueue, after commitConfiguration().
-    // A format is considered "4K-capable for MultiCam" only if:
-    //   - dims.width == 3840
-    //   - isMultiCamSupported == true
-    // Absence of such a format means 4K cannot be used without busting hardwareCost.
-    guard let back = backDevice else { return }
-    let has4K = back.formats.contains { fmt in
-        let dims = CMVideoFormatDescriptionGetDimensions(fmt.formatDescription)
-        return Int(dims.width) == 3840 && fmt.isMultiCamSupported
-    }
-    DispatchQueue.main.async { [weak self] in
-        self?.supports4K = has4K
-        logger.info("CameraManager: 4K MultiCam support detected=\(has4K)")
-    }
+case .saveFailed(let msg):
+    Text("Could not save recording: \(msg)")
+```
+
+`msg` is an error string from the system. The wrapping literal `"Could not save recording: \(msg)"` IS a LocalizedStringKey with interpolation. This extracts to key `"Could not save recording: %@"` and localizes the surrounding sentence correctly. The `msg` portion is a dynamic system error string that is not translated — acceptable.
+
+The second alert message:
+
+```swift
+Text("DualVideo doesn't have permission to save to Photos. Open Settings to allow access.")
+```
+
+This is a plain string literal — it localizes automatically.
+
+**4. `.alert("Save Failed", ...)` and `.alert` titles.**
+
+Alert title `"Save Failed"` is a string literal → localizes automatically. Same for button labels `"Open Settings"`, `"Dismiss"`.
+
+**5. `ProgressView("Starting…")` and `ProgressView("Requesting permissions…")`** in `RootView` — these are string literal arguments, extract automatically.
+
+### ViewModels / Actors — What Changes
+
+The ViewModels in this app (`CameraManager`, `RecordingManager`, `PermissionManager`, `PhotoSaveManager`, `MovieRecorder`) do not produce user-visible strings directly — they are data and session management layers.
+
+The one exception is `PermissionDeniedReason.rawValue` used as a routing token:
+
+```swift
+enum PermissionDeniedReason: String, Sendable {
+    case camera = "camera"
+    case microphone = "microphone"
+    case photos = "photos"
 }
 ```
 
-This is called once, inside `configureAndStart()`, right after the existing `commitConfiguration()` + `hardwareCost` check. No session restart needed.
+The raw value `"camera"` is used in `AppRoute.permissionsBlocked(which: String)` and then switched on in `PermissionsBlockedView.blockedMessage`. This is an internal routing identifier, not a display string. The display strings are in the view — follow the `LocalizedStringKey` fix above. The `PermissionDeniedReason` enum and its raw values do not need to change.
 
-**`applyResolutionFormat` — no logic change required.** The existing `applyFormat(to:targetLandscapeWidth:)` already:
-- Filters by `isMultiCamSupported`
-- Logs a warning and keeps the current format if no matching format is found
+**General rule for this app:** ViewModels do not need changes for localization. All user-visible copy lives in Views. The one fix needed is promoting `blockedMessage` and `storageEstimate` from `String` properties to `LocalizedStringKey`-returning properties.
 
-Passing `landscapeWidth: 3840` will correctly select a 4K MultiCam-supported format if one exists, or silently fall back to the current format if not. The caller (`applyResolutionFormat`) already logs `hardwareCost` after `commitConfiguration()` and warns if cost >= 0.9. That warning is the correct behavior for 4K on constrained hardware — no new error handling is needed here.
+### AccessibilityLabel Changes
 
-**New: post-format-change hardwareCost guard.** The existing code logs a warning at >= 0.9 but does not revert the format. For 4K, a cost > 1.0 would crash the session. Add a revert path:
+Two components have hardcoded accessibility labels as string literals — these localize automatically because string literals passed to `.accessibilityLabel()` are `LocalizedStringKey`:
 
-```swift
-// Inside applyResolutionFormat, after commitConfiguration():
-let cost = session.hardwareCost
-logger.info("CameraManager: after 4K format apply, hardwareCost=\(cost)")
-if cost > 1.0 {
-    logger.error("CameraManager: hardwareCost \(cost) > 1.0 — reverting to 1080p")
-    session.beginConfiguration()
-    if let back = backDevice {
-        applyFormat(to: back, targetLandscapeWidth: 1920)
-    }
-    // front camera revert...
-    session.commitConfiguration()
-}
-```
+- `RecordButton`: `.accessibilityLabel(isRecording ? "Stop Recording" : "Start Recording")` — ternary of literals, both literals are extracted. Localizes correctly.
+- `TorchToggleButton`: `.accessibilityLabel(isTorchOn ? "Turn off torch" : "Turn on torch")` — same, localizes correctly.
+- `RecordingStatusOverlay`: `.accessibilityLabel("Recording — \(formattedTime)")` — interpolated literal with String variable. The surrounding sentence `"Recording — %@"` is a localizable key. The time value is not translated. Correct behavior.
+
+No changes needed to these accessibility labels.
 
 ---
 
-### 3. `AppState` — MODIFIED (expose `supports4K`)
+## InfoPlist Strings: Permission Descriptions
 
-`AppState` holds `cameraManager: CameraManager`. The UI needs to read `cameraManager.supports4K` to conditionally show the 4K option. No structural change is needed — `AppState` does not need a new property; the view reads `appState.cameraManager.supports4K` directly. However, `CameraManager` must be `@Observable` on `supports4K` (it already uses `@Observable` macro), so this is automatic.
-
----
-
-### 4. `QualitySettingsSheet` — MODIFIED (conditional 4K display)
-
-**Change:** Filter the resolution picker to only show `.uhd4K` if the device supports it.
-
-```swift
-Picker("Resolution", selection: $settings.resolution) {
-    ForEach(OutputResolution.allCases.filter { r in
-        r != .uhd4K || cameraManager.supports4K
-    }, id: \.self) { r in
-        Text(r.rawValue).tag(r)
-    }
-}
-```
-
-The sheet needs to receive `cameraManager` (or just `supports4K: Bool`) as a parameter. Currently it takes only `@Binding var settings: VideoQualitySettings`. Add a `let supports4K: Bool` parameter.
-
-**Sheet height:** Adding a third segment to the segmented picker does not overflow the existing `.presentationDetents([.height(260)])` height. No height change needed.
-
----
-
-### 5. `MovieRecorder` — NO CHANGE REQUIRED
-
-`AVAssetWriterInput` is configured with `AVVideoWidthKey` and `AVVideoHeightKey` from `settings.resolution.width/height`. These are already driven by `VideoQualitySettings`. Adding `.uhd4K` with width=2160, height=3840 flows through without any code change.
-
-The `AVAssetWriterInputPixelBufferAdaptor` pool is also sized from `settings.resolution.width/height`. No change required.
-
-**Codec note:** H.264 at 4K is valid on iOS and supported by `AVAssetWriter`. HEVC (H.265) would produce smaller files at 4K but requires a codec change. For v1.1, H.264 is the correct choice — it keeps the change minimal and avoids a new encoder decision. HEVC can be a future enhancement.
-
----
-
-### 6. `PiPCompositor` — NO CHANGE REQUIRED
-
-`outputWidth` and `outputHeight` are set by `RecordingManager.startRecording(settings:)` before the pool is created. The compositor's `composite(back:front:pipRect:)` method scales the front camera to `pipRect` using `CGAffineTransform` — this is resolution-independent. The `roundedCornerMask` cache is keyed on `pipWidth`, which scales proportionally with `outputWidth`. No code changes needed.
-
-**Memory note:** A 4K CVPixelBuffer (2160×3840, BGRA) is approximately 33 MB per frame. The pixel buffer pool will hold several such buffers. This is within iOS norms for video capture on A15+ hardware but should be noted as a difference from 1080p (≈8 MB per frame).
-
----
-
-### 7. `RecordingManager` — NO CHANGE REQUIRED
-
-`startRecording(settings:)` already reads `settings.resolution.width/height` and assigns them to `compositor.outputWidth/Height`. The `settings` parameter is passed through to `recorder.startRecording(settings:)`. Adding `.uhd4K` to `OutputResolution` flows through without any code change.
-
----
-
-## Data Flow With 4K Added
+`Info.plist` currently contains three system-displayed strings:
 
 ```
-AppState.init()
-  └─ cameraManager.compositor = PiPCompositor()
-
-cameraManager.startSession()  →  configureAndStart()  (sessionQueue)
-  └─ [existing] addInputs, addOutputs, addConnections, commitConfiguration
-  └─ [NEW] detect4KCapability()
-       └─ back.formats.contains { dims.width==3840 && isMultiCamSupported }
-       └─ main thread: cameraManager.supports4K = true|false
-
-QualitySettingsSheet (conditioned on supports4K)
-  └─ user selects .uhd4K
-  └─ appState.qualitySettings.resolution = .uhd4K
-  └─ onDismiss → appState.qualitySettings.save()
-  └─ cameraManager.applyResolutionFormat(resolution: .uhd4K)
-       └─ applyFormat(to: back, targetLandscapeWidth: 3840)  — existing filter: isMultiCamSupported
-       └─ applyFormat(to: front, targetLandscapeWidth: 3840) — likely falls back (front has no 4K MultiCam)
-       └─ commitConfiguration()
-       └─ [NEW] hardwareCost > 1.0 guard → revert to 1080p
-
-RecordingManager.startRecording(settings: qualitySettings)
-  └─ compositor.outputWidth = 2160, outputHeight = 3840
-  └─ recorder.startRecording(settings:)
-       └─ AVAssetWriter: AVVideoWidthKey=2160, AVVideoHeightKey=3840, H.264
-       └─ AVAssetWriterInputPixelBufferAdaptor: 2160×3840 BGRA pool
-  └─ compositor.pixelBufferPool = recorder.adaptor?.pixelBufferPool
+NSCameraUsageDescription
+NSMicrophoneUsageDescription
+NSPhotoLibraryAddUsageDescription
 ```
 
----
+These strings appear in iOS system permission dialogs. iOS reads them from the compiled `InfoPlist.strings` in the matching `.lproj` folder at runtime.
 
-## AVCaptureMultiCamSession Hardware Cost Constraints for 4K
+**Approach:** Create `InfoPlist.xcstrings` (Xcode 15 format). Add `en` and `es` translations for all three keys. Remove the inline values from `Info.plist` (they become the fallback; keeping them is redundant but not harmful — removing them is cleaner).
 
-### What Apple Documents (MEDIUM confidence — WWDC 2019 + Apple docs; no device-specific update post-2019 found)
+Spanish translations for the three keys:
 
-`AVCaptureMultiCamSession.hardwareCost` is a Float in [0.0, 1.0+]. The session refuses to run if cost >= 1.0 after `commitConfiguration`. The ISP bandwidth is the limiting factor, not compute.
-
-Factors that increase hardware cost:
-- Video resolution (the dominant factor — 4K is 4× 1080p in pixel count)
-- Frame rate
-- Number of active outputs
-- Binned vs unbinned formats (binned reduces cost at the same resolution)
-
-### 4K + Front Camera: The Critical Constraint
-
-WWDC 2019 Session 249 explicitly listed the MultiCam-supported formats for iPhone XS and XS Max. 4K (3840×2160) was **not among them**. The session stated: "We do not support 12 megapixel on N cameras. That would certainly do bad things to the phone."
-
-The `multiCamSupported` property on `AVCaptureDeviceFormat` is the runtime arbiter. The existing `applyFormat(to:targetLandscapeWidth:)` already filters on `fmt.isMultiCamSupported`. If the back camera has no 4K format with `isMultiCamSupported == true`, the format selection falls back silently and 4K recording is not possible on that device.
-
-**Expected behavior by hardware tier:**
-
-| Device | Back 4K `isMultiCamSupported` | Front 4K `isMultiCamSupported` | Notes |
-|--------|-------------------------------|-------------------------------|-------|
-| iPhone XR (A12, min target) | Likely false | False | A12 ISP bandwidth insufficient for dual 4K |
-| iPhone 11 Pro / 12 Pro (A13–A14) | Possibly false | False | 4K MultiCam not confirmed in public sources |
-| iPhone 15 Pro / 17 Pro (A17–A18) | Possibly true | False | Pro SoC ISP may support 4K back in MultiCam — must be validated on device |
-| iPhone 17 Pro Max (A18 Pro) | Possibly true | False | Same — device validation required |
-
-**Key implication:** Even if back camera 4K has `isMultiCamSupported = true` on Pro hardware, the front camera will almost certainly not have a 4K MultiCam-supported format. The front camera in the PiP compositor is scaled down to ~28% of output width anyway. Selecting a lower-resolution format for the front (e.g., 1080p) while back is 4K is the expected configuration. The existing `applyFormat` logic already handles this: it silently keeps whatever format it found when the target width is unavailable.
-
-**Recommended approach:** Do not force the front camera to 4K. Apply `landscapeWidth: 3840` to the back camera only. Leave the front camera at its current format (1080p or 720p). The compositor scales the front buffer regardless of source resolution.
-
-This means `applyResolutionFormat` should be modified to only apply the 4K format change to the back camera, while leaving the front camera at its current format when resolution is `.uhd4K`.
+| Key | English | Spanish |
+|-----|---------|---------|
+| `NSCameraUsageDescription` | DualVideo uses your back and front cameras simultaneously to record a picture-in-picture video. | DualVideo usa las cámaras frontal y trasera simultáneamente para grabar un video en modo imagen en imagen. |
+| `NSMicrophoneUsageDescription` | DualVideo records audio alongside your dual-camera video. | DualVideo graba audio junto con tu video de doble cámara. |
+| `NSPhotoLibraryAddUsageDescription` | DualVideo saves your recordings directly to your Photo Library. | DualVideo guarda tus grabaciones directamente en tu Fototeca. |
 
 ---
 
-## Where Capability Detection Lives
+## Complete String Inventory by Surface
 
-**Detection belongs in `CameraManager`.** Rationale:
+This is every user-visible string in the app and its localization status under the current code:
 
-- `CameraManager` owns `backDevice` and the session. It is the only component that can query `backDevice.formats` after the session is committed.
-- `AppState` is the correct place to *expose* the capability to the UI, but it should read it from `CameraManager.supports4K`, not compute it independently.
-- `VideoQualitySettings` must not contain detection logic — it is a pure data struct.
-- Detection must happen on `sessionQueue` after `commitConfiguration()`. `CameraManager.configureAndStart()` is already that exact location.
+### RootView / PermissionsBlockedView
 
-**Detection timing:** Once, at session startup. The device's 4K MultiCam capability does not change at runtime. No need for re-detection on format changes.
+| String | Current Type | Localizes Automatically | Action Required |
+|--------|-------------|-------------------------|-----------------|
+| `"Starting…"` | Literal in ProgressView | Yes | Add to catalog |
+| `"Requesting permissions…"` | Literal in ProgressView | Yes | Add to catalog |
+| `"Permission Required"` | Literal in Text | Yes | Add to catalog |
+| blockedMessage camera text | String variable | NO | Change to LocalizedStringKey |
+| blockedMessage microphone text | String variable | NO | Change to LocalizedStringKey |
+| blockedMessage photos text | String variable | NO | Change to LocalizedStringKey |
+| blockedMessage default text | String variable | NO | Change to LocalizedStringKey |
+| `"Open Settings"` (button) | Literal in Button | Yes | Add to catalog |
+
+### UnsupportedDeviceView
+
+| String | Current Type | Localizes Automatically | Action Required |
+|--------|-------------|-------------------------|-----------------|
+| `"Dual-Camera Recording Unavailable"` | Literal in Text | Yes | Add to catalog |
+| Long body text | Literal in Text | Yes | Add to catalog |
+
+### CameraContentView
+
+| String | Current Type | Localizes Automatically | Action Required |
+|--------|-------------|-------------------------|-----------------|
+| `"Saved to Photos"` | Literal in Text | Yes | Add to catalog |
+| `"Save Failed"` (alert title) | Literal | Yes | Add to catalog |
+| `"Open Settings"` (alert button) | Literal | Yes | Add to catalog |
+| `"Dismiss"` (alert button) | Literal | Yes | Add to catalog |
+| `"DualVideo doesn't have permission…"` | Literal in Text | Yes | Add to catalog |
+| `"Could not save recording: \(msg)"` | Interpolated literal | Yes (sentence localizes) | Add to catalog |
+
+### QualitySettingsSheet
+
+| String | Current Type | Localizes Automatically | Action Required |
+|--------|-------------|-------------------------|-----------------|
+| `"Video Quality"` | Literal in Text | Yes | Add to catalog |
+| `"Applies to both cameras"` | Literal in Text | Yes | Add to catalog |
+| `"Resolution"` (section header) | Literal in Text | Yes | Add to catalog |
+| `"Resolution"` (Picker label) | Literal in Picker | Yes | Add to catalog |
+| `r.rawValue` in ForEach ("720p", "1080p", "4K") | String variable | NO | Use Text(verbatim: r.rawValue) OR add explicit entries; these are unit labels, not sentences |
+| `"Frame Rate"` (section header) | Literal in Text | Yes | Add to catalog |
+| `"Frame Rate"` (Picker label) | Literal in Picker | Yes | Add to catalog |
+| `fps.displayName` in ForEach ("30 FPS", etc.) | String variable | NO | displayName returns String; see below |
+| storageEstimate strings | String variable | NO | Change to LocalizedStringKey |
+
+**OutputResolution rawValues** (`"720p"`, `"1080p"`, `"4K"`) are technical unit labels. Two approaches:
+- `Text(verbatim: r.rawValue)` — opt out of localization, display exactly as coded. Correct if these labels are universal (Spanish speakers understand "720p" and "4K").
+- Add explicit catalog entries and return `LocalizedStringKey` — only needed if the label should translate. For video resolution labels, `Text(verbatim:)` is correct.
+
+**FrameRatePreset.displayName** returns `"30 FPS"`, `"60 FPS"`, `"120 FPS"`. FPS is a universal abbreviation. `Text(verbatim: fps.displayName)` is correct. No catalog entries needed. Change `Text(fps.displayName)` to `Text(verbatim: fps.displayName)` to be explicit and silence the Xcode localization warning that will otherwise appear.
+
+### RecordingStatusOverlay
+
+| String | Current Type | Localizes Automatically | Action Required |
+|--------|-------------|-------------------------|-----------------|
+| `formattedTime` (e.g. "02:34") | String variable | No (and correct — time format is universal) | Use Text(verbatim: formattedTime) to suppress warning |
+| `"Recording — \(formattedTime)"` (accessibilityLabel) | Interpolated literal | Yes (surrounding text) | Add to catalog |
+
+### RecordButton / TorchToggleButton
+
+| String | Current Type | Localizes Automatically | Action Required |
+|--------|-------------|-------------------------|-----------------|
+| `"Stop Recording"` | Literal (ternary) | Yes | Add to catalog |
+| `"Start Recording"` | Literal (ternary) | Yes | Add to catalog |
+| `"Turn off torch"` | Literal (ternary) | Yes | Add to catalog |
+| `"Turn on torch"` | Literal (ternary) | Yes | Add to catalog |
+
+### ZoomIndicatorView
+
+| String | Current Type | Localizes Automatically | Action Required |
+|--------|-------------|-------------------------|-----------------|
+| `String(format: "%.1f×", zoomFactor)` | String variable | No (numeric + symbol, universal) | Use Text(verbatim:) or leave as String variable — no catalog entry needed |
+
+---
+
+## Data Flow: How Locale Selection Works
+
+No code changes needed for locale selection. iOS handles this automatically:
+
+1. User sets device language in iOS Settings → General → Language & Region.
+2. At app launch, `Bundle.main` resolves which `.lproj` folder to use (e.g., `es.lproj`).
+3. `LocalizedStringKey` lookups hit the compiled `Localizable.strings` in that folder.
+4. No `UserDefaults`, no in-app language picker, no runtime locale management is needed.
+
+This matches the milestone requirement: "System language detection via iOS locale — no manual override in settings."
 
 ---
 
 ## Build Order
 
-The dependency graph determines build order. Each item must compile before the next item that depends on it.
+Dependencies drive the order. Each step must complete before the next.
+
+### Step 1: Xcode Project Setup
+
+Enable localization infrastructure:
+- Project settings → Info → Localizations: add "Spanish (es)".
+- Build Settings → "Use Compiler to Extract Swift Strings" → Yes.
+
+This is a one-time project configuration. No Swift files change.
+
+### Step 2: Create Localizable.xcstrings
+
+File → New → String Catalog → name it `Localizable`.
+
+Add it to the DualVideo target. Build once — Xcode auto-populates the catalog with every string literal currently used in `Text()`, `Button()`, `Label()`, `Picker()`, `.alert()` across all Swift source files. This gives the English baseline.
+
+### Step 3: Fix String Variable Leaks (Code Changes)
+
+Before translating, close the two gaps where String variables bypass the catalog:
+
+**3a. PermissionsBlockedView.blockedMessage** — change from `var blockedMessage: String` to `var blockedMessageKey: LocalizedStringKey`. Update the four switch branches to return symbolic keys (`"permission.denied.camera"`, etc.) rather than full sentences. Update the call site to `Text(blockedMessageKey)`. Rebuild — Xcode extracts the four new keys.
+
+**3b. QualitySettingsSheet.storageEstimate** — change to `var storageEstimateKey: LocalizedStringKey`. Return `LocalizedStringKey("storage.low")`, `LocalizedStringKey("storage.less_than_one_min")`, `LocalizedStringKey(stringLiteral: "storage.minutes_remaining \(minutes)")`, etc. Rebuild — Xcode extracts keys with their interpolation signatures.
+
+**3c. Opt-out verbatim literals** — change `Text(fps.displayName)` → `Text(verbatim: fps.displayName)` and `Text(formattedTime)` → `Text(verbatim: formattedTime)`. This suppresses Xcode's "untranslated" warnings for these intentional non-localized values. Build to confirm no new untranslated warnings.
+
+### Step 4: Create InfoPlist.xcstrings
+
+File → New → String Catalog → name it `InfoPlist`. Add the three permission keys with English and Spanish values. Remove (or leave, but prefer to remove) the inline values from `Info.plist` to avoid duplication confusion.
+
+### Step 5: Translate All Keys to Spanish
+
+In Xcode's catalog editor, every key now has an "English" value (auto-populated) and an empty "Spanish" slot. Fill in all Spanish translations. The complete key list is derivable from the inventory table above.
+
+Key symbolic keys to define (not auto-extracted, must be added manually because they come from LocalizedStringKey return values):
 
 ```
-1. OutputResolution (.uhd4K case added)
-   — no dependencies other than Foundation
-
-2. CameraManager (supports4K property + detect4KCapability method)
-   — depends on OutputResolution (for landscapeWidth: 3840)
-
-3. QualitySettingsSheet (conditional .uhd4K display)
-   — depends on OutputResolution (ForEach over allCases) and CameraManager.supports4K
-   — the existing Picker already uses OutputResolution.allCases; adding the filter is additive
-
-4. Integration test / manual validation on device
-   — verify supports4K is false on iPhone XR
-   — verify supports4K is true/false on iPhone 17 Pro Max (determine actual value)
-   — verify hardwareCost stays < 1.0 after 4K format selection on supporting hardware
+permission.denied.camera
+permission.denied.microphone
+permission.denied.photos
+permission.denied.unknown
+storage.low
+storage.less_than_one_min
+storage.minutes_remaining   (with %lld placeholder)
+storage.hours_remaining     (with %lld placeholder)
+storage.unavailable
 ```
 
-No changes to `RecordingManager`, `MovieRecorder`, or `PiPCompositor` are required. The resolution-agnostic design of those components means 4K flows through without modification.
+All remaining keys are auto-extracted literals.
+
+### Step 6: Test
+
+- iOS Simulator: Settings app → General → Language & Region → iPhone Language → Español. Relaunch. All strings should display in Spanish.
+- Physical iPhone XR: same procedure.
+- Verify permission dialogs display Spanish text (requires triggering a fresh permission request, or resetting permissions in iOS Settings → Privacy).
+- Verify no "New" (untranslated) entries remain in the catalog editor.
 
 ---
 
-## Risks and Open Questions
+## Component Summary: New vs Modified vs Unchanged
 
-### Risk 1: 4K `isMultiCamSupported = false` on all current hardware (HIGH probability on XR, LOW probability on Pro)
+| File | Status | Change |
+|------|--------|--------|
+| `DualVideo/App/Info.plist` | MODIFIED | Remove three NSUsageDescription inline values |
+| `DualVideo/App/InfoPlist.xcstrings` | NEW | Permission description strings, en + es |
+| `DualVideo/Resources/Localizable.xcstrings` | NEW | All UI strings, en + es |
+| `DualVideo/Features/Root/RootView.swift` | MODIFIED | `blockedMessage` → `blockedMessageKey: LocalizedStringKey` |
+| `DualVideo/Features/Recording/UI/QualitySettingsSheet.swift` | MODIFIED | `storageEstimate` → `storageEstimateKey: LocalizedStringKey`; `Text(fps.displayName)` → `Text(verbatim:)`; `Text(r.rawValue)` → `Text(verbatim:)` |
+| `DualVideo/Features/Recording/UI/RecordingStatusOverlay.swift` | MODIFIED (minor) | `Text(formattedTime)` → `Text(verbatim: formattedTime)` |
+| All other Swift source files | UNCHANGED | String literals in Text/Button/Label/alert already localize automatically |
+| Xcode project file | MODIFIED | Add Spanish language, enable string extraction build setting |
 
-If no device in the test set has `isMultiCamSupported = true` for 4K back camera formats, the feature cannot be validated end-to-end. The UI correctly hides the 4K option in this case. This is not a bug but limits the feature to unreleased or untested hardware.
+---
 
-**Mitigation:** Test on iPhone 17 Pro Max first. Log `back.formats` with their `isMultiCamSupported` values at session startup during development to get ground truth.
+## Key Architectural Constraints
 
-### Risk 2: 4K `isMultiCamSupported = true` but hardwareCost > 1.0 after adding front camera
+**No ViewModel changes needed.** All user-visible strings in this app originate in Views. `CameraManager`, `RecordingManager`, `PermissionManager`, `MovieRecorder`, and `PiPCompositor` are correct as-is.
 
-Some Pro devices may have 4K formats with `isMultiCamSupported = true` individually, but the combined session cost with back 4K + front 1080p + two VideoDataOutputs exceeds 1.0. The new revert guard in `applyResolutionFormat` handles this.
+**The auto-extraction build setting is critical.** Without "Use Compiler to Extract Swift Strings" = Yes in Build Settings, the catalog will not self-populate from source. Manual key entry would be required for every string. Enable this setting in Step 1 and keep it on.
 
-**Mitigation:** Log `hardwareCost` immediately after committing the 4K format. If > 1.0, revert and surface an error via `sessionError` (same pattern as existing `handleError`).
+**Key naming strategy:** Use semantic keys (e.g., `"permission.denied.camera"`) for symbolic `LocalizedStringKey` return values. Use the English text itself as the key for auto-extracted literals (Xcode default). This means the catalog mixes two key styles. This is normal and correct — do not fight it by forcing all keys to be symbolic.
 
-### Risk 3: Front camera left at higher resolution than needed wastes ISP bandwidth
-
-When back camera is configured 4K, the front camera's format is unchanged (left at 1080p by the existing format application from session startup). This consumes additional ISP bandwidth that might push the total cost over the limit.
-
-**Mitigation:** When applying 4K to the back camera, explicitly set the front camera to the lowest MultiCam-supported format that preserves reasonable PiP quality (e.g., 720p or even 480p — the front PiP is only 28% output width, so 720p is more than sufficient). This is an explicit addition to `applyResolutionFormat` for the 4K case only.
-
-### Open Question: Does `systemPressureCost` matter for 4K?
-
-`AVCaptureMultiCamSession.systemPressureCost` tracks thermal/CPU pressure separately from `hardwareCost`. 4K compositing in Core Image on `dataOutputQueue` will increase CPU/GPU utilization. If thermal throttling occurs during long 4K recordings, frame drops will appear in the compositor output. This is a runtime observation question, not an architecture question — no code change addresses it at design time.
+**String interpolation word order:** Spanish may require different argument positions than English. The catalog supports `%lld` positional arguments. When adding Spanish translations for interpolated keys, confirm the argument order is natural for the Spanish sentence.
 
 ---
 
@@ -326,11 +423,12 @@ When back camera is configured 4K, the front camera's format is unchanged (left 
 
 | Area | Confidence | Basis |
 |------|------------|-------|
-| Component change list | HIGH | Direct code read of all five source files |
-| Detection placement (CameraManager) | HIGH | Follows existing pattern; only component with `backDevice` access post-session |
-| `OutputResolution` extension | HIGH | Additive enum case, existing consumer code is unaffected |
-| `applyFormat` flow adequacy | HIGH | Filter already uses `isMultiCamSupported`; 4K just adds a new `landscapeWidth` value |
-| 4K `isMultiCamSupported = false` on most hardware | MEDIUM | WWDC 2019 documentation; no public source confirms Pro hardware changed this |
-| Front camera should stay at 1080p/720p for 4K back | MEDIUM | Follows ISP bandwidth reasoning from Apple docs; unverified on specific hardware |
-| H.264 at 4K via AVAssetWriter | HIGH | Supported on iOS per Apple documentation |
-| MovieRecorder / PiPCompositor require no changes | HIGH | Resolution flows through via `settings.resolution.width/height`; code paths are resolution-agnostic |
+| String Catalog format choice | HIGH | Apple WWDC23 documentation; iOS 18.0 target has no backward compat concern |
+| Text() literal vs variable behavior | HIGH | Apple documentation on LocalizedStringKey; ExpressibleByStringLiteral protocol |
+| String variable bypass gap | HIGH | Confirmed in Apple docs and multiple current sources |
+| ViewModel no-change conclusion | HIGH | Direct code read — no user-visible strings originate in ViewModels |
+| blockedMessage fix pattern | HIGH | Standard LocalizedStringKey return pattern, well-documented |
+| storageEstimate fix pattern | MEDIUM | LocalizedStringKey interpolation with computed values is documented; exact syntax for the placeholder signatures warrants a compile-time check |
+| InfoPlist.xcstrings approach | HIGH | Xcode 15 feature, documented by Apple; project is on iOS 18 / Xcode 15+ |
+| Auto-extraction build setting | HIGH | Documented in WWDC23 String Catalog session |
+| Spanish translations content | LOW | Provided as starting-point text only; a fluent Spanish speaker should review before shipping |
