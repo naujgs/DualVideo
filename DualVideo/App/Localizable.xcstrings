@@ -432,6 +432,24 @@
           }
         }
       }
+    },
+    "Recording \u2014 %@" : {
+      "comment" : "VoiceOver label for the recording status indicator; %@ is the MM:SS elapsed time string",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recording \u2014 %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : ""
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
