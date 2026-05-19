@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
-status: executing
-stopped_at: Milestone v1.1 roadmap created — next step is /gsd-plan-phase 7
-last_updated: "2026-05-19T13:16:13.055Z"
+milestone: v1.4
+milestone_name: Language / Localization
+status: planning
+stopped_at: Milestone v1.4 started — defining requirements
+last_updated: "2026-05-19T00:00:00.000Z"
 last_activity: 2026-05-19
 progress:
-  total_phases: 8
-  completed_phases: 6
-  total_plans: 17
-  completed_plans: 17
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-19)
 
 **Core value:** Both cameras record together and the result lands in Photos as a single watchable video.
-**Current focus:** Milestone v1.1 — 4K Resolution Support
+**Current focus:** Milestone v1.4 — Language / Localization
 
 ## Current Position
 
-Phase: 8
-Plan: Not started
-Status: Ready to execute
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
 Last activity: 2026-05-19
 
 ## Performance Metrics
