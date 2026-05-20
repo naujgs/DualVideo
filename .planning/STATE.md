@@ -61,6 +61,12 @@ Decisions are logged in PROJECT.md Key Decisions table.
 
 None.
 
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260520-0dx | Prevent screen sleep during camera session | 2026-05-20 | a020cff | [260520-0dx-prevent-screen-sleep-during-camera-sessi](./quick/260520-0dx-prevent-screen-sleep-during-camera-sessi/) |
+
 ### Blockers/Concerns
 
 - iPhone XR (A12) is confirmed as non-4K-capable for MultiCam — useful as negative test only.
