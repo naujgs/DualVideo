@@ -218,6 +218,12 @@ struct CameraContentView: View {
             }
         }
         .ignoresSafeArea()
+        .onAppear {
+            UIApplication.shared.isIdleTimerDisabled = true
+        }
+        .onDisappear {
+            UIApplication.shared.isIdleTimerDisabled = false
+        }
         .defersSystemGestures(on: .bottom)
         .onChange(of: cameraManager.isSessionRunning) { _, isRunning in
             if isRunning {
